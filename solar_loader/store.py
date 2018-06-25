@@ -1,17 +1,19 @@
 from pathlib import Path
 from time import perf_counter
 import numpy as np
+from munch import munchify
 
 from django.db import connections
 
 
 def make_queries(tables):
     sql_dir = Path(__file__).parent.joinpath('sql')
+    tables_config = munchify(tables)
     for sql_path in sql_dir.glob('*.sql'):
         query_name = sql_path.stem
         with open(sql_path.as_posix()) as tpf:
             tpl = tpf.read()
-            query = tpl.format(**tables)
+            query = tpl.format(**tables_config)
             yield (
                 query_name,
                 query,

@@ -1,3 +1,6 @@
+from shapely import geometry
+
+
 def coord_to_wkt(c):
     return '{} {} {}'.format(*c)
 
@@ -32,3 +35,7 @@ def make_polyhedral(t0, t1):
 
     return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
         ', '.join(hs))
+
+
+def shape_to_obj(shape):
+    return geometry.mapping(shape)

@@ -8,7 +8,7 @@ from psycopg2.extensions import AsIs
 from shapely import geometry, wkb
 from click import secho
 from .records import Triangle
-from .lingua import make_polyhedral
+from .lingua import make_polyhedral, shape_to_obj
 from .sunpos import get_sun_position
 from .geom import (tesselate, get_triangle_center, get_triangle_normal,
                    get_triangle_flat_mat, transform_triangle, unit_vector,
@@ -171,4 +171,4 @@ def get_results(db, tmy, sample_interval, ground_id):
         '{} seconds spent in db with an average of {} seconds for {} executions'.
         format(db.total_time(), db.mean_time(), db.total_exec()))
 
-    return (roofs, triangles, radiations)
+    return (list(map(shape_to_obj, roofs)), radiations)
