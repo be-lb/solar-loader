@@ -1,7 +1,7 @@
 import math
 from functools import partial
 import numpy as np
-from shapely import wkb, geometry
+from shapely import wkb, geometry, ops
 from .records import Triangle
 
 
@@ -84,7 +84,7 @@ def get_triangle_area(t):
         np.cross(t.b, t.c),
         np.cross(t.c, t.a),
     ]
-    total = np.sum(products)
+    total = np.sum(products, axis=0)
     result = np.dot(total, n)
     return abs(result / 2)
 
@@ -107,53 +107,47 @@ def transform_multipolygon(m, mpoly):
 
 
 def polygon_drop_z(poly):
-    return geometry.Polygon([coord[:2] for coord in poly.exterior.coords])
+    return geometry.Polygon([coord[:2] for coord in poly.exterior.coords]), [
+        coord[2] for coord in poly.exterior.coords
+    ]
+
+
+def polygon_add_z(poly, zs):
+    return geometry.Polygon([(coord[0], coord[1], zs[i])
+                             for i, coord in enumerate(poly.exterior.coords)])
 
 
 def multipolygon_drop_z(mpoly):
-    return geometry.MultiPolygon(map(polygon_drop_z, mpoly))
+    ps = []
+    zs = []
+    for p, z in map(polygon_drop_z, mpoly):
+        ps.append(p)
+        zs.append(z)
+
+    return geometry.MultiPolygon(ps), zs
 
 
-def tesselate_polygon(poly):
-    triangles = []
-    coords = poly.exterior.coords
-    pivot = np.array(coords[0])
-    for i in range(1, len(coords) - 1, 1):
-        triangles.append(
-            Triangle(pivot, np.array(coords[i]), np.array(coords[i + 1])))
-
-    return triangles
-
-
-def tesselate_multipolygon(multi):
-    triangles = []
-    for poly in multi:
-        triangles.extend(tesselate_polygon(poly))
-
-    return triangles
+def triangle_from_shape(shape):
+    coords = shape.exterior.coords
+    return Triangle(
+        np.array(coords[0]), np.array(coords[1]), np.array(coords[2]))
 
 
 def tesselate(shape):
     """
-    shape -- shapely.geometry.{Polygon, MultiPolygon}
+    shape -- shapely.geometry.Geometry
     """
-
-    gt = shape.geom_type
-    if 'Polygon' == gt:
-        return tesselate_polygon(shape)
-    elif 'MultiPolygon' == gt:
-        return tesselate_multipolygon(shape)
-
-    raise GeometryTypeError(gt, 'Polygon, MultiPolygon')
+    triangles = [s for s in ops.triangulate(shape)]
+    contained_triangles = filter(
+        lambda s: shape.contains(geometry.Point(get_triangle_center(triangle_from_shape(s)))),
+        triangles)
+    return [triangle_from_shape(s) for s in contained_triangles]
 
 
-def get_triangle_flat_mat(t):
-    """returns a flatening matrix for a triangle"""
-
-    nt = get_triangle_normal(t)
-    dist = np.linalg.norm(nt)
+def get_triangle_mat(vec):
+    dist = np.linalg.norm(vec)
     if abs(dist) > 0:
-        nt = nt / dist
+        nt = vec / dist
         pdist = vec2_dist(np.array([0, 0]), np.array([nt[0], nt[1]]))
         az = math.atan2(nt[1], nt[0])
         el = np.deg2rad(90) - math.atan2(nt[2], pdist)
@@ -163,6 +157,12 @@ def get_triangle_flat_mat(t):
         return m
 
     raise GeometryMissingDimension('{}, {}'.format(nt, dist))
+
+
+def get_triangle_flat_mat(t):
+    """returns a flatening matrix for a triangle"""
+
+    return get_triangle_mat(get_triangle_normal(t))
 
 
 def unit_vector(vector):
