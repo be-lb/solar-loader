@@ -2,21 +2,18 @@ import os
 from datetime import datetime, timedelta, timezone
 import numpy as np
 import math
-import json
 from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from psycopg2.extensions import AsIs
-from shapely import geometry, wkb
+from shapely import geometry, wkb, wkt
 from click import secho
 from .records import Triangle
+from .gis_geom import GISTriangle
 from .lingua import make_polyhedral
 from .sunpos import get_sun_position
-from .geom import (tesselate, get_triangle_center, get_triangle_normal,
-                   get_triangle_mat, transform_triangle, unit_vector,
-                   angle_between, transform_multipolygon, multipolygon_drop_z,
-                   GeometryMissingDimension, get_triangle_area, polygon_add_z,
-                   transform_polygon)
+from .geom import tesselate, get_triangle_mat, transform_triangle,\
+    unit_vector, transform_multipolygon, GeometryMissingDimension
 from .radiation import compute_gk
 
 
@@ -49,6 +46,7 @@ def get_days(start_month, start_day, interval, n):
 
 
 def same_triangle(t0, t1):
+    # TODO pas utilisé
     e = 0.001
     for v in (0, 1, 2):
         for c in (0, 1, 2):
@@ -80,7 +78,7 @@ def make_triangle(t, props=dict()):
 compute_gk_times = []
 
 
-def worker(db, tmy, triangles, day):
+def worker(db, tmy, gis_triangles, day):
     global compute_gk_times
     start_time = perf_counter()
     secho('Start {}-{}-{}'.format(day[0].year, day[0].month, day[0].day))
@@ -94,19 +92,16 @@ def worker(db, tmy, triangles, day):
         tmy_index = tmy.get_index(tim)
 
         hourly_radiations = []
-        for triangle in triangles:
-            center = get_triangle_center(triangle)
+        for gis_triangle in gis_triangles:
+            center = gis_triangle.center
             sunpos = get_sun_position(center, tim)
+
             if sunpos.is_daylight is False:
                 continue
 
-            norm = get_triangle_normal(triangle)
-
-            triangle_azimuth = np.rad2deg(
-                angle_between(np.array([0, 1]), norm[:2]))
-            triangle_inclination = np.rad2deg(
-                angle_between(np.array([norm[0], norm[1], 0]), norm))
-            triangle_area = get_triangle_area(triangle)
+            triangle_azimuth = gis_triangle.get_azimuth()
+            triangle_inclination = gis_triangle.get_inclination()
+            triangle_area = gis_triangle.area
 
             # vector from center of triangle to sun position
             sunvec = sunpos.coords - center
@@ -128,22 +123,24 @@ def worker(db, tmy, triangles, day):
             # vector of length 200m towards sun position
             farvec = sunvecunit * 200
 
-            triangle_near = Triangle(triangle.a + nearvec,
-                                     triangle.b + nearvec,
-                                     triangle.c + nearvec)
-            triangle_far = Triangle(triangle.a + farvec, triangle.b + farvec,
-                                    triangle.c + farvec)
+            triangle_near = Triangle(gis_triangle.geom.a + nearvec,
+                                     gis_triangle.geom.b + nearvec,
+                                     gis_triangle.geom.c + nearvec)
+            triangle_far = Triangle(
+                gis_triangle.geom.a + farvec,
+                gis_triangle.geom.b + farvec,
+                gis_triangle.geom.c + farvec)
 
             # a polyhedral surface from roof towards sun
             polyhedr = make_polyhedral(triangle_near, triangle_far)
 
             try:
                 flat_mat = get_triangle_mat(sunvec)
-                flat_mat_inv = np.linalg.inv(flat_mat)
+                # flat_mat_inv = np.linalg.inv(flat_mat) -- not used
             except GeometryMissingDimension:
                 continue
 
-            flat_triangle = transform_triangle(flat_mat, triangle)
+            flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
             # flat_triangle_z = [
             #     flat_triangle.a[2],
             #     flat_triangle.b[2],
@@ -166,6 +163,9 @@ def worker(db, tmy, triangles, day):
             for row in db.rows('select_intersect', (AsIs(polyhedr), )):
                 # get the geometry
                 solid = wkb.loads(row[1], hex=True)
+                """ code for marc
+                solid = wkt.loads(row[2])
+                """
                 # apply same transformation than the flatten triangle
                 flatten_solid = transform_multipolygon(flat_mat, solid)
                 # drops its z
@@ -210,25 +210,34 @@ def get_results(db, tmy, sample_interval, ground_id):
     days = get_days(3, 20, timedelta(days=sample_interval), int(sample_rate))
 
     # we get roofs for this ground
+    """ code for marc
+    roofs = []
+
+    for row in db.rows('select_roof_within', (ground_id, )):
+        roofs.append(wkt.loads(row[0]))
+    """
+
     roofs = [
         wkb.loads(row[2], hex=True)
         for row in db.rows('select_roof_within', (ground_id, ))
     ]
 
-    triangles = []
+    triangles_row = []
     for roof in roofs:
-        triangles.extend(tesselate(roof))
+        triangles_row.extend(tesselate(roof))
+
+    gis_triangles = [GISTriangle(t) for t in triangles_row]
 
     secho('Start processing {} triangles over {} roof surfaces for {} days'.
-          format(len(triangles), len(roofs), len(days)))
+          format(len(gis_triangles), len(roofs), len(days)))
     radiations = []
 
     with ThreadPoolExecutor() as executor:
         for daily_radiation in executor.map(
-                partial(worker, db, tmy, triangles), days):
+                partial(worker, db, tmy, gis_triangles), days):
             radiations.append(daily_radiation * float(sample_interval))
 
-    total_area = np.sum(list(map(get_triangle_area, triangles)))
+    total_area = np.sum([t.area for t in gis_triangles])
     secho(
         'radiations on {} amounts to {} KWh on {} m2'.format(
             ground_id, int(math.floor(np.sum(radiations) / 1000)), total_area),
@@ -248,6 +257,6 @@ def get_results(db, tmy, sample_interval, ground_id):
                 "name": "urn:ogc:def:crs:EPSG::31370"
             }
         },
-        "features": [make_triangle(t) for t in triangles],
+        "features": [make_triangle(t) for t in triangles_row],
         "radiations": radiations,
     }

@@ -1,7 +1,7 @@
 import math
 from functools import partial
 import numpy as np
-from shapely import wkb, geometry, ops
+from shapely import geometry, ops
 from .records import Triangle
 
 
