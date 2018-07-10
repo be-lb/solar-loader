@@ -56,19 +56,27 @@ def same_triangle(t0, t1):
     return True
 
 
-def make_triangle(t, props=dict()):
+def triangle_to_geojson(t):
     return {
         'type': 'Feature',
-        'properties': props,
+        'properties': {
+            'id': '',
+            'parcel_id': '',
+            'typology': '',
+            'productivity': '',
+            'area': t.area,
+            'azimuth': t.get_azimuth() if t.get_azimuth() and not math.isnan(t.get_azimuth()) else '',
+            'tilt': t.get_inclination() if t.get_inclination() and not math.isnan(t.get_inclination()) else '',
+        },
         'geometry': {
             'type':
             'Polygon',
             'coordinates': [
                 [
-                    t.a.tolist(),
-                    t.b.tolist(),
-                    t.c.tolist(),
-                    t.a.tolist(),
+                    t.geom.a.tolist(),
+                    t.geom.b.tolist(),
+                    t.geom.c.tolist(),
+                    t.geom.a.tolist(),
                 ],
             ],
         }
@@ -162,7 +170,9 @@ def worker(db, tmy, gis_triangles, day):
 
             for row in db.rows('select_intersect', (AsIs(polyhedr), )):
                 # get the geometry
+                # """ code for other
                 solid = wkb.loads(row[1], hex=True)
+                # """
                 """ code for marc
                 solid = wkt.loads(row[2])
                 """
@@ -216,11 +226,12 @@ def get_results(db, tmy, sample_interval, ground_id):
     for row in db.rows('select_roof_within', (ground_id, )):
         roofs.append(wkt.loads(row[0]))
     """
-
+    # """ code for others
     roofs = [
         wkb.loads(row[2], hex=True)
         for row in db.rows('select_roof_within', (ground_id, ))
     ]
+    # """
 
     triangles_row = []
     for roof in roofs:
@@ -257,6 +268,6 @@ def get_results(db, tmy, sample_interval, ground_id):
                 "name": "urn:ogc:def:crs:EPSG::31370"
             }
         },
-        "features": [make_triangle(t) for t in triangles_row],
+        "features": [triangle_to_geojson(t) for t in gis_triangles],
         "radiations": radiations,
     }

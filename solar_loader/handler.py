@@ -30,4 +30,4 @@ def handle_request(request, capakey):
 
     results = get_results(data_store, tmy, sample_rate, capakey)
 
-    return JsonResponse(dict(results=results))
+    return JsonResponse(results)
