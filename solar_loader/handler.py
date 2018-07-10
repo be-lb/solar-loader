@@ -14,7 +14,7 @@
 #
 
 from json import loads, dump
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.conf import settings
 
 from .store import Data
@@ -27,7 +27,17 @@ sample_rate = settings.SOLAR_SAMPLE_RATE
 
 
 def handle_request(request, capakey):
-
     results = get_results(data_store, tmy, sample_rate, capakey)
-
     return JsonResponse(results)
+
+
+def get_settings(request):
+    if hasattr(settings, 'SOLAR_SIMULATOR_SETTINGS'):
+        return JsonResponse(settings.SOLAR_SIMULATOR_SETTINGS)
+    else:
+        return JsonResponse(
+            {
+                'error': True,
+                'message': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
+Django settings'},
+            status=500)

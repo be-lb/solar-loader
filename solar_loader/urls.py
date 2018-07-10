@@ -15,8 +15,9 @@
 #
 
 from django.conf.urls import url
-from .handler import handle_request
+from .handler import handle_request, get_settings
 
 urlpatterns = [
+    url(r'^solar/settings/$', get_settings, name='geodata.solar.settings'),
     url(r'^solar/(?P<capakey>.+)/$', handle_request, name='geodata.solar'),
 ]
