@@ -4,13 +4,16 @@ import numpy as np
 
 
 class GISTriangle:
-    def __init__(self, geom):
+    def __init__(self, geom, id=0, parcel_id=0):
+        self.id = id
+        self.parcel_id = parcel_id
         self.geom = geom  # the geometry of the triangle
         self.center = get_triangle_center(geom)
         self.area = get_triangle_area(geom)
         self.norm = None
         self.azimuth = None
         self.inclination = None
+        self.radiations = []
 
     def get_norm(self):
         if self.norm is None:

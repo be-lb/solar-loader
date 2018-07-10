@@ -60,10 +60,10 @@ def triangle_to_geojson(t):
     return {
         'type': 'Feature',
         'properties': {
-            'id': '',
-            'parcel_id': '',
+            'id': t.id,
+            'parcel_id': t.parcel_id,
             'typology': '',
-            'productivity': '',
+            'productivity': np.sum([t.radiations]),
             'area': t.area,
             'azimuth': t.get_azimuth() if t.get_azimuth() and not math.isnan(t.get_azimuth()) else '',
             'tilt': t.get_inclination() if t.get_inclination() and not math.isnan(t.get_inclination()) else '',
@@ -196,13 +196,14 @@ def worker(db, tmy, gis_triangles, day):
             secho('triangle_area = {}'.format(triangle_area))
             if intersection is None:
                 total_direct = triangle_area * radiation_direct
-                hourly_radiations.append(total_direct + total_global)
             else:
                 direct_area = intersection.area * triangle_area / triangle_2d.area
                 secho('intersection.area = {},  triangle_2d.area = {}'.format(
                     intersection.area, triangle_2d.area))
                 total_direct = direct_area * radiation_direct
-                hourly_radiations.append(total_direct + total_global)
+
+            hourly_radiations.append(total_direct + total_global)
+            gis_triangle.radiations.append(total_direct + total_global)
 
         daily_radiations.append(np.sum(hourly_radiations))
 
@@ -237,7 +238,7 @@ def get_results(db, tmy, sample_interval, ground_id):
     for roof in roofs:
         triangles_row.extend(tesselate(roof))
 
-    gis_triangles = [GISTriangle(t) for t in triangles_row]
+    gis_triangles = [GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)]
 
     secho('Start processing {} triangles over {} roof surfaces for {} days'.
           format(len(gis_triangles), len(roofs), len(days)))
@@ -259,6 +260,13 @@ def get_results(db, tmy, sample_interval, ground_id):
     secho(
         '{} seconds spent in db with an average of {} seconds for {} executions'.
         format(db.total_time(), db.mean_time(), db.total_exec()))
+
+    for t in gis_triangles:
+        t.radiations = t.radiations * sample_interval
+
+    secho('Check')
+    secho("{}".format(np.sum(radiations)))
+    secho("{}".format(np.sum([np.sum(t.radiations) for t in gis_triangles])))
 
     return {
         "type": "FeatureCollection",

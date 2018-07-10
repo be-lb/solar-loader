@@ -8,8 +8,7 @@ Authors: Daniel Klauser / Simon Albrecht, Meteotest AG, 3012 Bern, Switzerland
 """
 
 import numpy as np
-from math import pi, exp, sin, cos, atan, acos, radians, floor, ceil
-import time
+from math import pi, exp, sin, cos, radians, floor
 
 # constants for compute_gk
 epsilons = np.array([1.065, 1.23, 1.5, 1.95, 2.8, 4.5, 6.2, 10])
@@ -29,44 +28,52 @@ def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, mon
     """
     compute irradiation on inclined surface.
 
-    Returns global (=gk) and direct (=bk) irradiance (W/m2) on inclined surface as a float.
+    Returns global (=gk) and direct (=bk) irradiance (W/m2) on inclined
+    surface as a float.
 
-    Includes cicumsolar and horizon band anisotropic distribution according to PEREZ model.
+    Includes cicumsolar and horizon band anisotropic distribution according
+    to PEREZ model.
+
     Source : Solar Energy Vol.44, No 5, pp. 271-289, 1990.
 
     keyword arguments:
 
     gh              global horizontal radiation in W/m2 (input from TMY)
     dh              diffuse horizontal radiation in W/m2 (input from TMY)
-    sza             solar zenit angle (0 = zenit, 90 = horizon) (input from TMY)
-    saa             solar azimuth angle (degrees between -180 to +180 as input from TMY, converted in code to 0 to 360)
+    sza             solar zenit angle (0 = zenit, 90 = horizon) (input from
+                    TMY)
+    saa             solar azimuth angle (degrees between -180 to +180 as input
+                    from TMY, converted in code to 0 to 360)
     alb             albedo (between 0 and 1) --> constant value for Brussels
-    azimuth         azimuth of roof plane (degrees between 0 and 360, 0/360=north, 90°=east,180°=south,270°=west)
-    inclination     inclination of roof plane (degrees between 0 (flat) and 90 (fascade))
+    azimuth         azimuth of roof plane (degrees between 0 and 360,
+                    0/360=north, 90ï¿½=east,180ï¿½=south,270ï¿½=west)
+    inclination     inclination of roof plane (degrees between 0 (flat) and
+                    90 (fascade))
     alt             altitude of roof plane above sea level
-    visibility      visibility (0 = shadowed, 1 = sunny, float value between 0 and 1 = partially shadowed)
-    month           month
+    visibility      visibility (0 = shadowed, 1 = sunny, float value between 0
+                    and 1 = partially shadowed)
+    month           month (from 1 to 12)
     i            	index of TMY for hour of year: 0-8760
 
 
-    All angles are assumed to be given in degrees, i.e. [°], and converted to
+    All angles are assumed to be given in degrees, i.e. [ï¿½], and converted to
     radians within this method.
 
     The calculation follows the mn-theory handbook section 6.7.2
     """
 
-	# calculate isometric rd factors for flat plane (rdiso_flat) and inclined plane (rdiso):
-    roofrdiso= roof_rdiso(azimuth, inclination, visibility)
+    # calculate isometric rd factors for flat plane (rdiso_flat) and inclined plane (rdiso):
+    roofrdiso = roof_rdiso(azimuth, inclination, visibility)
     rdiso_flat = roofrdiso[0]
     rdiso = roofrdiso[1]
 
-	# day of year:
+    # day of year:
     dayofyear = 1 + days_in_months_before[month-1] + floor(i / 24.0)
 
-	# calculate direct horizontal irradiance bh
-    bh = gh-dh
+    # calculate direct horizontal irradiance bh
+    bh = gh - dh
 
-    if gh<= 0 :
+    if gh <= 0:
         return 0.0, 0.0
     if bh >= 0.95 * gh:
         bh = 0.95 * gh
@@ -95,7 +102,7 @@ def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, mon
     hs = (pi / 2.0) - sza
     am = airmass(hs, alt)
     # extraterrestrial radiation: mn-theory section 6.4
-    i0 = 1367 * (1 + 0.03344 * cos(2 * pi * dayofyear / 365.25  - 0.048869))
+    i0 = 1367 * (1 + 0.03344 * cos(2 * pi * dayofyear / 365.25 - 0.048869))
     delta = dh * am / i0
 
     # calculate PEREZ MODEL parameter epsilon
@@ -128,6 +135,8 @@ def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, mon
 
     return max(0, gk), max(0, bk)
 
+# constants for computing roof_rdiso
+PI_DIV_90_360 = pi / (90 * 360)
 
 def roof_rdiso(azimuth, inclination, visibility):
 
@@ -140,19 +149,31 @@ def roof_rdiso(azimuth, inclination, visibility):
 
     rdiso = 0
     rdiso_flat = 0
+
+    cos_radians_inclination = cos(radians(inclination))
+    sin_radians_inclination = sin(radians(inclination))
+
     for phi in range(0, 360):
+        cos_rad_phi_minus_azimuth = cos(radians(phi - azimuth))
+        sin_radians_inclination_x_cos_rad_phi_minus_azimuth = \
+            sin_radians_inclination * cos_rad_phi_minus_azimuth
         for theta in range(0, 90):
             # use angle of the center of the sky element
             theta = theta + 0.5
-            rdiso += ((pi / (90 * 360)) * sin(radians(theta)) *
-                                    visibility *
-                                    max(sin(radians(theta)) * sin(radians(inclination))
-                                        * cos(radians(phi - azimuth)) + cos(radians(theta))
-                                        * cos(radians(inclination)), 0))
-            rdiso_flat += (pi / (90 * 360)) * sin(radians(theta)) * visibility * cos(radians(theta))
+            rdiso += PI_DIV_90_360 * sin(radians(theta)) * visibility *\
+                max(
+                    sin(radians(theta)) *
+                    sin_radians_inclination_x_cos_rad_phi_minus_azimuth +
+                    cos(radians(theta)) * cos_radians_inclination,
+                    0)
+            rdiso_flat += PI_DIV_90_360 * sin(radians(theta)) * visibility *\
+                cos(radians(theta))
     return max(0.0, min(1.0, rdiso_flat)), max(0.0, min(1.0, rdiso))
 
 
+# constants for computingairmass
+AIRMASS_HST_4_NEG_HS = 0.061359 * 0.1594
+AIRMASS_DIVIDER_4_NEG_HS = (sin(AIRMASS_HST_4_NEG_HS) + 0.50572 * (AIRMASS_HST_4_NEG_HS + 6.07995) ** -1.6364)
 
 def airmass(hs, alt):
     """
@@ -161,35 +182,10 @@ def airmass(hs, alt):
     """
     alt_corr = exp(-alt / 8435.2)
     if hs < 0:
-        hst = 0.061359 * 0.1594
-        airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
+        # hst = 0.061359 * 0.1594
+        # airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
+        airmass = alt_corr / AIRMASS_DIVIDER_4_NEG_HS
     else:
         hst = hs + 0.061359 * (0.1594 + 1.123 * hs + 0.065656 * hs**2) / (1 + 28.9344 * hs + 277.3971 * hs**2)
         airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
     return airmass
-
-
-
-# --------------------------------------------
-# Debug / Test data:
-# --------------------------------------------
-
-##month = 8
-##i = 5341
-##gh=784
-##dh=174
-##sza=35.6
-##saa=-7.3
-##azimuth=0+180 # south
-##inclination=35
-##alt=28
-##visibility=1
-### --> resulting values: gk=978.5, bk=748.1, (dk=230.4)
-##
-##
-##
-### run/check:
-##result = compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, month,i)
-##gk_result = result[0]
-##bk_result = result[1]
-##print('gk={0:.1f}, bk={1:.1f}, dk={2:.1f}'.format(gk_result,bk_result,gk_result-bk_result))
