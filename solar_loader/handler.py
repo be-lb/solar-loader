@@ -13,8 +13,9 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.conf import settings
+from django.contrib.gis.geos import GEOSGeometry
 
 from .store import Data
 from .tmy import TMY
@@ -43,8 +44,7 @@ def get_settings(request):
     else:
         return JsonResponse(
             {
-                'error': True,
-                'message': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
+                'error': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
 Django settings'},
             status=500)
 
@@ -59,12 +59,11 @@ def get_geom(request, capakey):
     row_list = list(rows)
 
     if len(row_list) == 1:
-        row = row_list[0]
-        return JsonResponse({'geom': row[0]})
+        geom = GEOSGeometry(row_list[0][0])
+        return HttpResponse(geom.json, content_type='application/json')
     else:
         return JsonResponse(
             {
-                'error': True,
-                'message': 'No entry found for {}'.format(capakey)
+                'error': 'No entry found for {}'.format(capakey)
             },
             status=500)
