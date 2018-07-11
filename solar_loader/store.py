@@ -4,6 +4,7 @@ import numpy as np
 from munch import munchify
 
 from django.db import connections
+from django.conf import settings
 
 
 def make_queries(tables):
@@ -43,6 +44,9 @@ class Data:
         try:
             with conn.cursor() as cur:
                 q = self.find_query(query_name)
+                if settings.DEBUG:
+                    print('>> SQL({}) on {}'.format(query_name, self._cn))
+                    print(q, args)
                 start_time = perf_counter()
                 cur.execute(q, *args)
                 self._times.append(perf_counter() - start_time)

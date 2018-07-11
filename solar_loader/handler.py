@@ -13,7 +13,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404, HttpResponseBadRequest
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
 
@@ -44,8 +44,10 @@ def get_settings(request):
     else:
         return JsonResponse(
             {
-                'error': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
-Django settings'},
+                'error':
+                'No SOLAR_SIMULATOR_SETTINGS entry in the \
+Django settings'
+            },
             status=500)
 
 
@@ -65,8 +67,8 @@ def get_geom(request, capakey):
         return JsonResponse(
             {
                 'error': 'No entry found for {}'.format(capakey)
-            },
-            status=500)
+            }, status=500)
+
 
 def get_3d(request, capakey):
     """
@@ -77,5 +79,30 @@ def get_3d(request, capakey):
     rows = db.rows('select_solid_intersect', (capakey, ))
     solid_list = [GEOSGeometry(row[0]) for row in rows]
     solid_collection = GeometryCollection(solid_list)
-    return HttpResponse(
-        solid_collection.json, content_type='application/json')
+    return HttpResponse(solid_collection.json, content_type='application/json')
+
+
+def get_spatial_ref_key(request, longitude, latitude):
+    """
+    Get the capakey for given coordinates
+    """
+    try:
+        lon = float(longitude)
+        lat = float(latitude)
+    except ValueError:
+        raise HttpResponseBadRequest('care to give valid lon/lat?')
+
+    db = data_store
+    rows = db.rows('select_ground_intersect', (
+        lon,
+        lat,
+    ))
+    row_list = list(rows)
+
+    capakey = None
+    if len(row_list) == 1:
+        capakey = row_list[0][0]
+    else:
+        raise Http404('coordinate didnt match a spatial reference')
+
+    return JsonResponse(dict(capakey=capakey))
