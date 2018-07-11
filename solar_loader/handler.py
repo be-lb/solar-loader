@@ -21,6 +21,7 @@ from django.views.decorators.cache import cache_page
 from .store import Data
 from .tmy import TMY
 from .compute import get_results
+from .radiation_cache import mk_cache
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
@@ -33,7 +34,6 @@ def capakey_in(capakey):
 
 def capakey_out(capakey):
     return capakey.replace('/', '-')
-
 
 @cache_page(60 * 60)
 def handle_request(request, capakey):
@@ -117,3 +117,9 @@ def get_spatial_ref_key(request, longitude, latitude):
         raise Http404('coordinate didnt match a spatial reference')
 
     return JsonResponse(dict(capakey=capakey_out(capakey)))
+
+
+def make_radition_cache(request):
+    mk_cache()
+
+    return JsonResponse({'ok': 'ok'})

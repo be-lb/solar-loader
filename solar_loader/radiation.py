@@ -23,7 +23,10 @@ days_in_months_before = np.array([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 3
 # albedo for Brussels:
 alb = 0.2
 
-def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, month,i):
+
+def compute_gk(
+    gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, month, i,
+        rdiso_flat=None, rdiso=None):
 
     """
     compute irradiation on inclined surface.
@@ -54,6 +57,8 @@ def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, mon
                     and 1 = partially shadowed)
     month           month (from 1 to 12)
     i            	index of TMY for hour of year: 0-8760
+    rdiso_flat      (optionnal)
+    rdiso           (optionnal)
 
 
     All angles are assumed to be given in degrees, i.e. [�], and converted to
@@ -63,9 +68,11 @@ def compute_gk(gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, mon
     """
 
     # calculate isometric rd factors for flat plane (rdiso_flat) and inclined plane (rdiso):
-    roofrdiso = roof_rdiso(azimuth, inclination, visibility)
-    rdiso_flat = roofrdiso[0]
-    rdiso = roofrdiso[1]
+
+    if rdiso_flat is None or rdiso is None:
+        roofrdiso = roof_rdiso(azimuth, inclination, visibility)
+        rdiso_flat = roofrdiso[0]
+        rdiso = roofrdiso[1]
 
     # day of year:
     dayofyear = 1 + days_in_months_before[month-1] + floor(i / 24.0)

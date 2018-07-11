@@ -15,9 +15,11 @@
 #
 
 from django.conf.urls import url
-from .handler import handle_request, get_settings, get_geom, get_3d, get_spatial_ref_key
+from .handler import handle_request, get_settings, get_geom, get_3d,\
+    get_spatial_ref_key, make_radition_cache
 
 urlpatterns = [
+    url(r'^solar/make/radiation/cache/$', make_radition_cache, name='geodata.solar.make_radition_cache'),
     url(r'^solar/settings/$', get_settings, name='geodata.solar.settings'),
     url(r'^solar/geom/for/(?P<capakey>.+)/$',
         get_geom,
