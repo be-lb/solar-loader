@@ -16,6 +16,7 @@
 from django.http import JsonResponse, HttpResponse, Http404, HttpResponseBadRequest
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
+from django.views.decorators.cache import cache_page
 
 from .store import Data
 from .tmy import TMY
@@ -34,6 +35,7 @@ def capakey_out(capakey):
     return capakey.replace('/', '-')
 
 
+@cache_page(60 * 60)
 def handle_request(request, capakey):
     """
     Compute the raditiaions for the parcel with capakey as cadastral number

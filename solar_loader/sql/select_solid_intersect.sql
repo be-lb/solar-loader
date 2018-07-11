@@ -3,6 +3,6 @@ SELECT
 FROM 
     {solid.table} AS solid
     INNER JOIN {ground.table} AS gnd 
-        ON ST_3DIntersects(solid.{ground.geometry}, gnd.{solid.geometry})
+        ON ST_3DIntersects(solid.{solid.geometry}, gnd.{ground.geometry})
 WHERE 
     gnd.{ground.capakey} = %s;

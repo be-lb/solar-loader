@@ -67,13 +67,22 @@ def triangle_to_geojson(t):
     return {
         'type': 'Feature',
         'properties': {
-            'id': t.id,
-            'parcel_id': t.parcel_id,
-            'typology': '',
-            'productivity': np.sum([t.radiations]),
-            'area': t.area,
-            'azimuth': t.get_azimuth() if t.get_azimuth() and not math.isnan(t.get_azimuth()) else '',
-            'tilt': t.get_inclination() if t.get_inclination() and not math.isnan(t.get_inclination()) else '',
+            'id':
+            t.id,
+            'parcel_id':
+            t.parcel_id,
+            'typology':
+            '',
+            'productivity':
+            np.sum([t.radiations]),
+            'area':
+            t.area,
+            'azimuth':
+            t.get_azimuth()
+            if t.get_azimuth() and not math.isnan(t.get_azimuth()) else 0,
+            'tilt':
+            t.get_inclination() if t.get_inclination()
+            and not math.isnan(t.get_inclination()) else 0,
         },
         'geometry': {
             'type':
@@ -141,10 +150,9 @@ def worker(db, tmy, gis_triangles, day):
             triangle_near = Triangle(gis_triangle.geom.a + nearvec,
                                      gis_triangle.geom.b + nearvec,
                                      gis_triangle.geom.c + nearvec)
-            triangle_far = Triangle(
-                gis_triangle.geom.a + farvec,
-                gis_triangle.geom.b + farvec,
-                gis_triangle.geom.c + farvec)
+            triangle_far = Triangle(gis_triangle.geom.a + farvec,
+                                    gis_triangle.geom.b + farvec,
+                                    gis_triangle.geom.c + farvec)
 
             # a polyhedral surface from roof towards sun
             polyhedr = make_polyhedral(triangle_near, triangle_far)
@@ -182,9 +190,9 @@ def worker(db, tmy, gis_triangles, day):
 
             for row in db.rows(
                     'select_intersect',
-                    {'conv_geom_operator': conv_geom_operator},
-                    (AsIs(polyhedr), ),
-                    ):
+                {'conv_geom_operator': conv_geom_operator},
+                (AsIs(polyhedr), ),
+            ):
                 # get the geometry
                 if use_wkb:
                     solid = wkb.loads(row[1], hex=True)
@@ -239,8 +247,7 @@ def get_results(db, tmy, sample_interval, ground_id):
 
     if use_wkb:
         roofs = [
-            wkb.loads(row[0], hex=True)
-            for row in db.rows(
+            wkb.loads(row[0], hex=True) for row in db.rows(
                 'select_roof_within',
                 {'conv_geom_operator': ''},
                 (ground_id, ),
@@ -248,8 +255,7 @@ def get_results(db, tmy, sample_interval, ground_id):
         ]
     else:
         roofs = [
-            wkt.loads(row[0])
-            for row in db.rows(
+            wkt.loads(row[0]) for row in db.rows(
                 'select_roof_within',
                 {'conv_geom_operator': 'st_astext'},
                 (ground_id, ),
@@ -261,7 +267,8 @@ def get_results(db, tmy, sample_interval, ground_id):
         triangles_row.extend(tesselate(roof))
 
     gis_triangles = [
-        GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)]
+        GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)
+    ]
 
     secho('Start processing {} triangles over {} roof surfaces for {} days'.
           format(len(gis_triangles), len(roofs), len(days)))
