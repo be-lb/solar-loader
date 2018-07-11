@@ -39,7 +39,7 @@ class Data:
                 return query
         raise QueryNotFound(query_name)
 
-    def rows(self, query_name, *args):
+    def rows(self, query_name, safe_params={}, *args):
         conn = connections[self._cn]
         try:
             with conn.cursor() as cur:
@@ -48,6 +48,8 @@ class Data:
                     print('>> SQL({}) on {}'.format(query_name, self._cn))
                     print(q, args)
                 start_time = perf_counter()
+                for k in safe_params:
+                    q = q.replace('__{}__'.format(k), safe_params[k])
                 cur.execute(q, *args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:
