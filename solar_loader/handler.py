@@ -15,7 +15,7 @@
 
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
-from django.contrib.gis.geos import GEOSGeometry
+from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
 
 from .store import Data
 from .tmy import TMY
@@ -67,3 +67,15 @@ def get_geom(request, capakey):
                 'error': 'No entry found for {}'.format(capakey)
             },
             status=500)
+
+def get_3d(request, capakey):
+    """
+    Get the 3D-geojson that is associated to a parcel with capakey as
+    cadastral number
+    """
+    db = data_store
+    rows = db.rows('select_solid_intersect', (capakey, ))
+    solid_list = [GEOSGeometry(row[0]) for row in rows]
+    solid_collection = GeometryCollection(solid_list)
+    return HttpResponse(
+        solid_collection.json, content_type='application/json')
