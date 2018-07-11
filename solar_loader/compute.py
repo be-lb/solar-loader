@@ -15,6 +15,13 @@ from .sunpos import get_sun_position
 from .geom import tesselate, get_triangle_mat, transform_triangle,\
     unit_vector, transform_multipolygon, GeometryMissingDimension
 from .radiation import compute_gk
+from django.conf import settings
+from django.utils.safestring import mark_safe
+
+# to say if we use wkb or wkt to communicate with the db
+use_wkb = True
+if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
+    use_wkb = False
 
 
 def fake_compute_gk(*args):
@@ -168,14 +175,22 @@ def worker(db, tmy, gis_triangles, day):
 
             intersection = None
 
-            for row in db.rows('select_intersect', (AsIs(polyhedr), )):
+            if use_wkb:
+                conv_geom_operator = ''  # do not convert data form db
+            else:
+                conv_geom_operator = 'st_astext'  # convert data form db is wkt
+
+            for row in db.rows(
+                    'select_intersect',
+                    {'conv_geom_operator': conv_geom_operator},
+                    (AsIs(polyhedr), ),
+                    ):
                 # get the geometry
-                # """ code for other
-                solid = wkb.loads(row[1], hex=True)
+                if use_wkb:
+                    solid = wkb.loads(row[1], hex=True)
+                else:
+                    solid = wkt.loads(row[1])
                 # """
-                """ code for marc
-                solid = wkt.loads(row[2])
-                """
                 # apply same transformation than the flatten triangle
                 flatten_solid = transform_multipolygon(flat_mat, solid)
                 # drops its z
@@ -221,24 +236,32 @@ def get_results(db, tmy, sample_interval, ground_id):
     days = get_days(3, 20, timedelta(days=sample_interval), int(sample_rate))
 
     # we get roofs for this ground
-    """ code for marc
-    roofs = []
 
-    for row in db.rows('select_roof_within', (ground_id, )):
-        roofs.append(wkt.loads(row[0]))
-    """
-    # """ code for others
-    roofs = [
-        wkb.loads(row[2], hex=True)
-        for row in db.rows('select_roof_within', (ground_id, ))
-    ]
-    # """
+    if use_wkb:
+        roofs = [
+            wkb.loads(row[0], hex=True)
+            for row in db.rows(
+                'select_roof_within',
+                {'conv_geom_operator': ''},
+                (ground_id, ),
+            )
+        ]
+    else:
+        roofs = [
+            wkt.loads(row[0])
+            for row in db.rows(
+                'select_roof_within',
+                {'conv_geom_operator': 'st_astext'},
+                (ground_id, ),
+            )
+        ]
 
     triangles_row = []
     for roof in roofs:
         triangles_row.extend(tesselate(roof))
 
-    gis_triangles = [GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)]
+    gis_triangles = [
+        GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)]
 
     secho('Start processing {} triangles over {} roof surfaces for {} days'.
           format(len(gis_triangles), len(roofs), len(days)))

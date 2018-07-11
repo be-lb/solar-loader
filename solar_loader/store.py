@@ -38,12 +38,14 @@ class Data:
                 return query
         raise QueryNotFound(query_name)
 
-    def rows(self, query_name, *args):
+    def rows(self, query_name, safe_params={}, *args):
         conn = connections[self._cn]
         try:
             with conn.cursor() as cur:
                 q = self.find_query(query_name)
                 start_time = perf_counter()
+                for k in safe_params:
+                    q = q.replace('__{}__'.format(k), safe_params[k])
                 cur.execute(q, *args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:
