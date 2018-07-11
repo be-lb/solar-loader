@@ -93,7 +93,7 @@ def get_spatial_ref_key(request, longitude, latitude):
         raise HttpResponseBadRequest('care to give valid lon/lat?')
 
     db = data_store
-    rows = db.rows('select_ground_intersect', (
+    rows = db.rows('select_ground_intersect', {}, (
         lon,
         lat,
     ))
