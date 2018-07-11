@@ -26,11 +26,19 @@ tmy = TMY(settings.SOLAR_TMY)
 sample_rate = settings.SOLAR_SAMPLE_RATE
 
 
+def capakey_in(capakey):
+    return capakey.replace('-', '/')
+
+
+def capakey_out(capakey):
+    return capakey.replace('/', '-')
+
+
 def handle_request(request, capakey):
     """
     Compute the raditiaions for the parcel with capakey as cadastral number
     """
-    results = get_results(data_store, tmy, sample_rate, capakey)
+    results = get_results(data_store, tmy, sample_rate, capakey_in(capakey))
     return JsonResponse(results)
 
 
@@ -57,7 +65,7 @@ def get_geom(request, capakey):
     """
     db = data_store
 
-    rows = db.rows('select_ground', (capakey, ))
+    rows = db.rows('select_ground', (capakey_in(capakey), ))
     row_list = list(rows)
 
     if len(row_list) == 1:
@@ -66,8 +74,9 @@ def get_geom(request, capakey):
     else:
         return JsonResponse(
             {
-                'error': 'No entry found for {}'.format(capakey)
-            }, status=500)
+                'error': 'No entry found for {}'.format(capakey_out(capakey))
+            },
+            status=500)
 
 
 def get_3d(request, capakey):
@@ -76,7 +85,7 @@ def get_3d(request, capakey):
     cadastral number
     """
     db = data_store
-    rows = db.rows('select_solid_intersect', (capakey, ))
+    rows = db.rows('select_solid_intersect', (capakey_in(capakey), ))
     solid_list = [GEOSGeometry(row[0]) for row in rows]
     solid_collection = GeometryCollection(solid_list)
     return HttpResponse(solid_collection.json, content_type='application/json')
@@ -105,4 +114,4 @@ def get_spatial_ref_key(request, longitude, latitude):
     else:
         raise Http404('coordinate didnt match a spatial reference')
 
-    return JsonResponse(dict(capakey=capakey))
+    return JsonResponse(dict(capakey=capakey_out(capakey)))
