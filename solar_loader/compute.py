@@ -22,12 +22,6 @@ use_wkb = True
 if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
     use_wkb = False
 
-def round5(f):
-    mul = f // 5
-    if f % 5 > 2.5:
-        mul += 1
-    return mul * 5
-
 def fake_compute_gk(*args):
     """A noop implementation to measure time of computaion without actually computing radiation
     """
@@ -135,39 +129,27 @@ def worker(db, tmy, gis_triangles, day):
 
             triangle_azimuth = gis_triangle.get_azimuth()
             triangle_inclination = gis_triangle.get_inclination()
-            triangle_area = gis_triangle.area
 
             if math.isnan(triangle_azimuth) or math.isnan(triangle_inclination):
                 secho('NAN azimuth or inclination for parcel id = {}, triangle id = {}'.format(gis_triangle.parcel_id, gis_triangle.id))
                 continue
 
-            triangle_azimuth5 = round5(triangle_azimuth)
-            triangle_inclination5 = round5(triangle_inclination)
-
+            triangle_area = gis_triangle.area
+            triangle_azimuth5 = gis_triangle.get_azimuth5()
+            triangle_inclination5 = gis_triangle.get_inclination5()
+            triangle_rdiso = gis_triangle.get_rdiso(db)
+            triangle_rdiso_flat = gis_triangle.get_rdiso_flat(db)
 
             # vector from center of triangle to sun position
             sunvec = sunpos.coords - center
             sunvecunit = unit_vector(sunvec)
-
-            res_roof_rdiso_rows = db.rows(
-                'select_res_roof_rdiso',
-                {},
-                (triangle_azimuth5, triangle_inclination5),
-            )
-
-            res_roof_rdiso_rows = list(res_roof_rdiso_rows)
-            if len(res_roof_rdiso_rows) == 0:
-                raise 'Missing entry for {} {} in res_roof_rdiso_rows'.format(triangle_azimuth5, triangle_inclination5)
-            else:
-                rdiso_flat = float(res_roof_rdiso_rows[0][0])
-                rdiso = float(res_roof_rdiso_rows[0][1])
 
             # radiation
             start_rad = perf_counter()
             radiation_global, radiation_direct = compute_gk(
                 gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                 triangle_inclination, center[2], 1, month, tmy_index,
-                rdiso_flat, rdiso)
+                triangle_rdiso_flat, triangle_rdiso)
             compute_gk_times.append(perf_counter() - start_rad)
             secho(
                 'compute_gk({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) \n>> radiation_global = {}, radiation_direct = {}'.
