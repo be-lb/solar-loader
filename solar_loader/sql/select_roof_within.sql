@@ -1,4 +1,5 @@
-SELECT __conv_geom_operator__(r.geom)
+SELECT 
+    __conv_geom_operator__(r.{roof.geometry})
 FROM
     {roof.table} r
     CROSS JOIN (

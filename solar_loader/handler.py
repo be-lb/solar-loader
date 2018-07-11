@@ -65,7 +65,7 @@ def get_geom(request, capakey):
     """
     db = data_store
 
-    rows = db.rows('select_ground', (capakey_in(capakey), ))
+    rows = db.rows('select_ground', {}, (capakey_in(capakey), ))
     row_list = list(rows)
 
     if len(row_list) == 1:
@@ -85,7 +85,7 @@ def get_3d(request, capakey):
     cadastral number
     """
     db = data_store
-    rows = db.rows('select_solid_intersect', (capakey_in(capakey), ))
+    rows = db.rows('select_solid_intersect', {}, (capakey_in(capakey), ))
     solid_list = [GEOSGeometry(row[0]) for row in rows]
     solid_collection = GeometryCollection(solid_list)
     return HttpResponse(solid_collection.json, content_type='application/json')

@@ -5,4 +5,4 @@ FROM
     INNER JOIN {ground.table} AS gnd 
         ON ST_3DIntersects(solid.{ground.geometry}, gnd.{solid.geometry})
 WHERE 
-    gnd.id = %s;
+    gnd.{ground.capakey} = %s;
