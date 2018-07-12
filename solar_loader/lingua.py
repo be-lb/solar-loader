@@ -39,3 +39,24 @@ def make_polyhedral(t0, t1):
 
 def shape_to_obj(shape):
     return geometry.mapping(shape)
+
+
+def make_feature(geom, props=dict()):
+    return {
+        "type": "Feature",
+        "geometry": geom,
+        "properties": props,
+    }
+
+
+def make_feature_collection(fs):
+    return {
+        "type": "FeatureCollection",
+        "crs": {
+            "type": "name",
+            "properties": {
+                "name": "urn:ogc:def:crs:EPSG::31370"
+            }
+        },
+        "features": fs,
+    }

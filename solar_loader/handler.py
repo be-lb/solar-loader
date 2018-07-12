@@ -13,6 +13,7 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from json import loads
 from django.http import JsonResponse, HttpResponse, Http404, HttpResponseBadRequest
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
@@ -22,6 +23,7 @@ from .store import Data
 from .tmy import TMY
 from .compute import get_results
 from .radiation_cache import mk_cache
+from .lingua import make_feature, make_feature_collection
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
@@ -34,6 +36,7 @@ def capakey_in(capakey):
 
 def capakey_out(capakey):
     return capakey.replace('/', '-')
+
 
 @cache_page(60 * 60)
 def handle_request(request, capakey):
@@ -88,9 +91,9 @@ def get_3d(request, capakey):
     """
     db = data_store
     rows = db.rows('select_solid_intersect', {}, (capakey_in(capakey), ))
-    solid_list = [GEOSGeometry(row[0]) for row in rows]
-    solid_collection = GeometryCollection(solid_list)
-    return HttpResponse(solid_collection.json, content_type='application/json')
+    features = [make_feature(loads(GEOSGeometry(row[0]).json)) for row in rows]
+    collection = make_feature_collection(features)
+    return JsonResponse(collection)
 
 
 def get_spatial_ref_key(request, longitude, latitude):
