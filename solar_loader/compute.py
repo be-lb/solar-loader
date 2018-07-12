@@ -115,6 +115,10 @@ def worker(db, tmy, gis_triangles, day):
     logger.debug('Start {}-{}-{}'.format(day[0].year, day[0].month,
                                          day[0].day))
     daily_radiations = []
+
+    for t in gis_triangles:
+        t.init(db)
+
     for tim in day:
         # values for compute_ck
         gh = tmy.get_float('Global Horizontal Radiation', tim)
@@ -142,10 +146,8 @@ def worker(db, tmy, gis_triangles, day):
                 continue
 
             triangle_area = gis_triangle.area
-            triangle_azimuth5 = gis_triangle.get_azimuth5()
-            triangle_inclination5 = gis_triangle.get_inclination5()
-            triangle_rdiso = gis_triangle.get_rdiso(db)
-            triangle_rdiso_flat = gis_triangle.get_rdiso_flat(db)
+            triangle_rdiso = gis_triangle.get_rdiso()
+            triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
 
             # vector from center of triangle to sun position
             sunvec = sunpos.coords - center
