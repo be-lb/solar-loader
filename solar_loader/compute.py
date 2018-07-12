@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from psycopg2.extensions import AsIs
 from shapely import geometry, wkb, wkt
-from click import secho
+import logging
 from .records import Triangle
 from .gis_geom import GISTriangle
 from .lingua import make_polyhedral
@@ -21,6 +21,9 @@ from django.conf import settings
 use_wkb = True
 if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
     use_wkb = False
+
+logger = logging.getLogger(__name__)
+
 
 def fake_compute_gk(*args):
     """A noop implementation to measure time of computaion without actually computing radiation
@@ -109,7 +112,8 @@ compute_gk_times = []
 def worker(db, tmy, gis_triangles, day):
     global compute_gk_times
     start_time = perf_counter()
-    secho('Start {}-{}-{}'.format(day[0].year, day[0].month, day[0].day))
+    logger.debug('Start {}-{}-{}'.format(day[0].year, day[0].month,
+                                         day[0].day))
     daily_radiations = []
     for tim in day:
         # values for compute_ck
@@ -130,8 +134,11 @@ def worker(db, tmy, gis_triangles, day):
             triangle_azimuth = gis_triangle.get_azimuth()
             triangle_inclination = gis_triangle.get_inclination()
 
-            if math.isnan(triangle_azimuth) or math.isnan(triangle_inclination):
-                secho('NAN azimuth or inclination for parcel id = {}, triangle id = {}'.format(gis_triangle.parcel_id, gis_triangle.id))
+            if math.isnan(triangle_azimuth) or math.isnan(
+                    triangle_inclination):
+                logger.info(
+                    'NAN azimuth or inclination for parcel id = {}, triangle id = {}'.
+                    format(gis_triangle.parcel_id, gis_triangle.id))
                 continue
 
             triangle_area = gis_triangle.area
@@ -151,7 +158,7 @@ def worker(db, tmy, gis_triangles, day):
                 triangle_inclination, center[2], 1, month, tmy_index,
                 triangle_rdiso_flat, triangle_rdiso)
             compute_gk_times.append(perf_counter() - start_rad)
-            secho(
+            logger.debug(
                 'compute_gk({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) \n>> radiation_global = {}, radiation_direct = {}'.
                 format(gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                        triangle_inclination, center[2], 1, month, tmy_index,
@@ -230,13 +237,14 @@ def worker(db, tmy, gis_triangles, day):
                         print(str(exc))
 
             total_global = triangle_area * radiation_global
-            secho('triangle_area = {}'.format(triangle_area))
+            logger.debug('triangle_area = {}'.format(triangle_area))
             if intersection is None:
                 total_direct = triangle_area * radiation_direct
             else:
                 direct_area = intersection.area * triangle_area / triangle_2d.area
-                secho('intersection.area = {},  triangle_2d.area = {}'.format(
-                    intersection.area, triangle_2d.area))
+                logger.debug(
+                    'intersection.area = {},  triangle_2d.area = {}'.format(
+                        intersection.area, triangle_2d.area))
                 total_direct = direct_area * radiation_direct
 
             hourly_radiations.append(total_direct + total_global)
@@ -244,9 +252,9 @@ def worker(db, tmy, gis_triangles, day):
 
         daily_radiations.append(np.sum(hourly_radiations))
 
-    secho('End {}-{}-{} ({})\n{}'.format(day[0].year, day[0].month, day[0].day,
-                                         perf_counter() - start_time,
-                                         daily_radiations))
+    logger.debug('End {}-{}-{} ({})\n{}'.format(
+        day[0].year, day[0].month, day[0].day,
+        perf_counter() - start_time, daily_radiations))
     return np.sum(daily_radiations)
 
 
@@ -283,8 +291,9 @@ def get_results(db, tmy, sample_interval, ground_id):
         GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)
     ]
 
-    secho('Start processing {} triangles over {} roof surfaces for {} days'.
-          format(len(gis_triangles), len(roofs), len(days)))
+    logger.info(
+        'Start processing {} triangles over {} roof surfaces for {} days'.
+        format(len(gis_triangles), len(roofs), len(days)))
     radiations = []
 
     with ThreadPoolExecutor() as executor:
@@ -293,23 +302,22 @@ def get_results(db, tmy, sample_interval, ground_id):
             radiations.append(daily_radiation * float(sample_interval))
 
     total_area = np.sum([t.area for t in gis_triangles])
-    secho(
-        'radiations on {} amounts to {} KWh on {} m2'.format(
-            ground_id, int(math.floor(np.sum(radiations) / 1000)), total_area),
-        fg='green')
-    secho('Done {}'.format(perf_counter() - start))
-    secho('Time spent in compute_gk: n = {}, t = {}'.format(
+    logger.info('radiations on {} amounts to {} KWh on {} m2'.format(
+        ground_id, int(math.floor(np.sum(radiations) / 1000)), total_area))
+    logger.info('Done {}'.format(perf_counter() - start))
+    logger.info('Time spent in compute_gk: n = {}, t = {}'.format(
         len(compute_gk_times), np.sum(compute_gk_times)))
-    secho(
+    logger.info(
         '{} seconds spent in db with an average of {} seconds for {} executions'.
         format(db.total_time(), db.mean_time(), db.total_exec()))
 
     for t in gis_triangles:
         t.radiations = t.radiations * sample_interval
 
-    secho('Check')
-    secho("{}".format(np.sum(radiations)))
-    secho("{}".format(np.sum([np.sum(t.radiations) for t in gis_triangles])))
+    logger.debug('Check')
+    logger.debug("{}".format(np.sum(radiations)))
+    logger.debug("{}".format(
+        np.sum([np.sum(t.radiations) for t in gis_triangles])))
 
     return {
         "type": "FeatureCollection",

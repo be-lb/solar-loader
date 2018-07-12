@@ -12,22 +12,32 @@ from math import pi, exp, sin, cos, radians, floor
 
 # constants for compute_gk
 epsilons = np.array([1.065, 1.23, 1.5, 1.95, 2.8, 4.5, 6.2, 10])
-f1 = np.array([[-0.008, 0.13,  0.33, 0.568, 0.873, 1.132, 1.06, 0.678],
-               [0.588, 0.683, 0.487, 0.187, -0.392, -1.237, -1.6, -0.327],
-               [-0.062, -0.151, -0.221, -0.295, -0.362, -0.412, -0.359, -0.25]])
-f2 = np.array([[-0.06,  -0.019,  0.055,  0.109,  0.226,  0.288,  0.264,  0.156],
+f1 = np.array([[-0.008, 0.13, 0.33, 0.568, 0.873, 1.132, 1.06, 0.678], [
+    0.588, 0.683, 0.487, 0.187, -0.392, -1.237, -1.6, -0.327
+], [-0.062, -0.151, -0.221, -0.295, -0.362, -0.412, -0.359, -0.25]])
+f2 = np.array([[-0.06, -0.019, 0.055, 0.109, 0.226, 0.288, 0.264, 0.156],
                [0.072, 0.066, -0.064, -0.152, -0.462, -0.823, -1.127, -1.377],
-               [-0.022, -0.029, -0.026, -0.014,  0.001,  0.056,  0.131,  0.251]])
-days_in_months_before = np.array([0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
+               [-0.022, -0.029, -0.026, -0.014, 0.001, 0.056, 0.131, 0.251]])
+days_in_months_before = np.array(
+    [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334])
 
 # albedo for Brussels:
 alb = 0.2
 
 
-def compute_gk(
-    gh, dh, sza, saa, alb, azimuth, inclination, alt, visibility, month, i,
-        rdiso_flat=None, rdiso=None):
-
+def compute_gk(gh,
+               dh,
+               sza,
+               saa,
+               alb,
+               azimuth,
+               inclination,
+               alt,
+               visibility,
+               month,
+               i,
+               rdiso_flat=None,
+               rdiso=None):
     """
     compute irradiation on inclined surface.
 
@@ -75,7 +85,7 @@ def compute_gk(
         rdiso = roofrdiso[1]
 
     # day of year:
-    dayofyear = 1 + days_in_months_before[month-1] + floor(i / 24.0)
+    dayofyear = 1 + days_in_months_before[month - 1] + floor(i / 24.0)
 
     # calculate direct horizontal irradiance bh
     bh = gh - dh
@@ -86,7 +96,6 @@ def compute_gk(
         bh = 0.95 * gh
     if alb > 1:
         alb = 1
-
 
     # convert azimuth from TMY (-180 to 180) to 0-360:
     saa = saa + 180
@@ -102,8 +111,8 @@ def compute_gk(
     # calculate the cosine of theta_gen, the incident angle of the sun on the
     # inclined plane, i.e. the angle between the direction of the sun then the
     # normal vector of the plane
-    cos_theta_gen = max(0, (sin(sza)* sin(inclination) * cos(saa - azimuth)
-                            + cos(sza) * cos(inclination)))
+    cos_theta_gen = max(0, (sin(sza) * sin(inclination) * cos(saa - azimuth) +
+                            cos(sza) * cos(inclination)))
 
     # calculate PEREZ MODEL parameter delta
     hs = (pi / 2.0) - sza
@@ -113,7 +122,8 @@ def compute_gk(
     delta = dh * am / i0
 
     # calculate PEREZ MODEL parameter epsilon
-    epsilon = (1.0 + bh  / (dh * sin(hs)) + 1.041 * (sza**3)) / (1.0 + 1.041 * (sza**3))
+    epsilon = (1.0 + bh / (dh * sin(hs)) + 1.041 * (sza**3)) / (1.0 + 1.041 *
+                                                                (sza**3))
 
     # CIRCUMSOLAR AND HORIZON BRIGHTENING COEFFICIENTS F1 and F2
     eps = 0
@@ -124,15 +134,15 @@ def compute_gk(
 
     # calculate gh_hor and dh_hor. a/b = 1 is assumed for consistency.
     bh_hor = visibility * bh
-    gh_hor = ((visibility *(bh + dh * f1_coeff) + dh * (1 - f1_coeff) * rdiso_flat) /
-              (1 - (1 - rdiso_flat) * alb))
+    gh_hor = ((visibility * (bh + dh * f1_coeff) + dh *
+               (1 - f1_coeff) * rdiso_flat) / (1 - (1 - rdiso_flat) * alb))
 
     # direct irradiance on inclined plane
     bk = visibility * bh * cos_theta_gen / cos(sza)
     # diffuse irradiance: circumsolar part
     dif_cs = visibility * dh * f1_coeff * cos_theta_gen / max(0.087, cos(sza))
     # diffuse irradiance: reflected part
-    dif_ref = gh_hor * alb * (1-rdiso)
+    dif_ref = gh_hor * alb * (1 - rdiso)
     # diffuse irradiance: isotropic
     dif_iso = dh * (1 - f1_coeff) * rdiso
     # diffuse irradiance: horizontal ribbon
@@ -142,11 +152,12 @@ def compute_gk(
 
     return max(0, gk), max(0, bk)
 
+
 # constants for computing roof_rdiso
 PI_DIV_90_360 = pi / (90 * 360)
 
-def roof_rdiso(azimuth, inclination, visibility):
 
+def roof_rdiso(azimuth, inclination, visibility):
     """
     calculates the isotropic diffus view factor given azimuth and inclination
     of a the roof plane and a horizon matrix.
@@ -180,7 +191,9 @@ def roof_rdiso(azimuth, inclination, visibility):
 
 # constants for computingairmass
 AIRMASS_HST_4_NEG_HS = 0.061359 * 0.1594
-AIRMASS_DIVIDER_4_NEG_HS = (sin(AIRMASS_HST_4_NEG_HS) + 0.50572 * (AIRMASS_HST_4_NEG_HS + 6.07995) ** -1.6364)
+AIRMASS_DIVIDER_4_NEG_HS = (sin(AIRMASS_HST_4_NEG_HS) + 0.50572 *
+                            (AIRMASS_HST_4_NEG_HS + 6.07995)**-1.6364)
+
 
 def airmass(hs, alt):
     """
@@ -193,6 +206,7 @@ def airmass(hs, alt):
         # airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
         airmass = alt_corr / AIRMASS_DIVIDER_4_NEG_HS
     else:
-        hst = hs + 0.061359 * (0.1594 + 1.123 * hs + 0.065656 * hs**2) / (1 + 28.9344 * hs + 277.3971 * hs**2)
-        airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
+        hst = hs + 0.061359 * (0.1594 + 1.123 * hs + 0.065656 * hs**2) / (
+            1 + 28.9344 * hs + 277.3971 * hs**2)
+        airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995)**-1.6364)
     return airmass

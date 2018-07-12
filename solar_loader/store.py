@@ -2,9 +2,12 @@ from pathlib import Path
 from time import perf_counter
 import numpy as np
 from munch import munchify
+import logging
 
 from django.db import connections
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 def make_queries(tables):
@@ -44,9 +47,9 @@ class Data:
         try:
             with conn.cursor() as cur:
                 q = self.find_query(query_name)
-                if settings.DEBUG:
-                    print('>> SQL({}) on {}'.format(query_name, self._cn))
-                    print(q, args)
+                # if settings.DEBUG:
+                logger.debug('>> SQL({}) on {}'.format(query_name, self._cn))
+                logger.debug(q, args)
                 start_time = perf_counter()
                 for k in safe_params:
                     q = q.replace('__{}__'.format(k), safe_params[k])
@@ -55,7 +58,7 @@ class Data:
                 for row in cur:
                     yield row
         except Exception as ex:
-            print('Error:DB:rows({}) \n{}'.format(query_name, ex))
+            logger.error('Error:DB:rows({}) \n{}'.format(query_name, ex))
 
     def total_exec(self):
         return len(self._times)
