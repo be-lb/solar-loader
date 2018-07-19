@@ -20,7 +20,10 @@ classifiers = [
     'Programming Language :: Python :: 3.5',
 ]
 
-install_requires = ['django']
+install_requires = [
+    'django', 'numpy', 'psycopg2', 'shapely', 'click', 'attrs', 'munch',
+    'pysolar', 'pyproj'
+]
 
 packages = find_packages()
 
@@ -34,4 +37,5 @@ setup(
     author_email=author_email,
     packages=packages,
     install_requires=install_requires,
-    classifiers=classifiers, )
+    classifiers=classifiers,
+)
