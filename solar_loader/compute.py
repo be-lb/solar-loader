@@ -6,21 +6,16 @@ from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from psycopg2.extensions import AsIs
-from shapely import geometry, wkb, wkt
+from shapely import geometry
 import logging
 from .records import Triangle
 from .gis_geom import GISTriangle
-from .lingua import make_polyhedral
+from .lingua import make_polyhedral, rows_with_geom
 from .sunpos import get_sun_position
 from .geom import tesselate, get_triangle_mat, transform_triangle,\
     unit_vector, transform_multipolygon, GeometryMissingDimension
 from .radiation import compute_gk
 from django.conf import settings
-
-# to say if we use wkb or wkt to communicate with the db
-use_wkb = True
-if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
-    use_wkb = False
 
 logger = logging.getLogger(__name__)
 
@@ -206,21 +201,10 @@ def worker(db, tmy, gis_triangles, day):
 
             intersection = None
 
-            if use_wkb:
-                conv_geom_operator = ''  # do not convert data form db
-            else:
-                conv_geom_operator = 'st_astext'  # convert data form db is wkt
-
-            for row in db.rows(
-                    'select_intersect',
-                {'conv_geom_operator': conv_geom_operator},
-                (AsIs(polyhedr), ),
-            ):
+            for row in rows_with_geom(db, 'select_intersect',
+                                      (AsIs(polyhedr), ), 1):
                 # get the geometry
-                if use_wkb:
-                    solid = wkb.loads(row[1], hex=True)
-                else:
-                    solid = wkt.loads(row[1])
+                solid = row[1]
                 # """
                 # apply same transformation than the flatten triangle
                 flatten_solid = transform_multipolygon(flat_mat, solid)
@@ -267,23 +251,10 @@ def get_results(db, tmy, sample_interval, ground_id):
     days = generate_sample_days(sample_interval)
 
     # we get roofs for this ground
-
-    if use_wkb:
-        roofs = [
-            wkb.loads(row[0], hex=True) for row in db.rows(
-                'select_roof_within',
-                {'conv_geom_operator': ''},
-                (ground_id, ),
-            )
-        ]
-    else:
-        roofs = [
-            wkt.loads(row[0]) for row in db.rows(
-                'select_roof_within',
-                {'conv_geom_operator': 'st_astext'},
-                (ground_id, ),
-            )
-        ]
+    roofs = [
+        row[0]
+        for row in rows_with_geom(db, 'select_roof_within', (ground_id, ), 0)
+    ]
 
     triangles_row = []
     for roof in roofs:

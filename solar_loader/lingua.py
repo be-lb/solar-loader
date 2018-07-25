@@ -1,4 +1,22 @@
-from shapely import geometry
+from shapely import geometry, wkb, wkt
+from django.conf import settings
+
+# to say if we use wkb or wkt to communicate with the db
+use_wkb = True
+if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
+    use_wkb = False
+
+
+def rows_with_geom(db, select, params, geom_index):
+    if use_wkb:
+        for row in db.rows(select, {'conv_geom_operator': ''}, params):
+            row[geom_index] = wkb.loads(row[geom_index], hex=True)
+            yield row
+    else:
+        for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
+                           params):
+            row[geom_index] = wkt.loads(row[geom_index])
+            yield row
 
 
 def coord_to_wkt(c):

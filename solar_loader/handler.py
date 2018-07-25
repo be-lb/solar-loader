@@ -23,7 +23,7 @@ from .store import Data
 from .tmy import TMY
 from .compute import get_results
 from .radiation_cache import mk_cache
-from .lingua import make_feature, make_feature_collection
+from .lingua import make_feature, make_feature_collection, rows_with_geom
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
@@ -70,18 +70,18 @@ def get_geom(request, capakey):
     """
     db = data_store
 
-    rows = db.rows('select_ground', {}, (capakey_in(capakey), ))
+    rows = rows_with_geom(db, 'select_ground', (capakey_in(capakey), ), 0)
     row_list = list(rows)
 
     if len(row_list) == 1:
-        geom = GEOSGeometry(row_list[0][0])
+        geom = row_list[0][0]
         return HttpResponse(geom.json, content_type='application/json')
     else:
         return JsonResponse(
             {
                 'error': 'No entry found for {}'.format(capakey_out(capakey))
             },
-            status=500)
+            status=404)
 
 
 def get_3d(request, capakey):
@@ -90,8 +90,9 @@ def get_3d(request, capakey):
     cadastral number
     """
     db = data_store
-    rows = db.rows('select_solid_intersect', {}, (capakey_in(capakey), ))
-    features = [make_feature(loads(GEOSGeometry(row[0]).json)) for row in rows]
+    rows = rows_with_geom(db, 'select_solid_intersect',
+                          (capakey_in(capakey), ), 0)
+    features = [make_feature(loads(row[0].json)) for row in rows]
     collection = make_feature_collection(features)
     return JsonResponse(collection)
 
