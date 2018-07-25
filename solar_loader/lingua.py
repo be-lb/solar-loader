@@ -10,11 +10,13 @@ if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
 def rows_with_geom(db, select, params, geom_index):
     if use_wkb:
         for row in db.rows(select, {'conv_geom_operator': ''}, params):
+            row = list(row)
             row[geom_index] = wkb.loads(row[geom_index], hex=True)
             yield row
     else:
         for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
                            params):
+            row = list(row)
             row[geom_index] = wkt.loads(row[geom_index])
             yield row
 
