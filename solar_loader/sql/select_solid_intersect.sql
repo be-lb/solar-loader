@@ -1,5 +1,5 @@
 SELECT 
-    st_asewkt(solid.{solid.geometry}), solid.id
+    __conv_geom_operator__(solid.{solid.geometry}), solid.id
 FROM 
     {solid.table} AS solid
     INNER JOIN {ground.table} AS gnd 
