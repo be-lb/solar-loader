@@ -75,8 +75,7 @@ def get_geom(request, capakey):
 
     if len(row_list) == 1:
         geom = row_list[0][0]
-        return HttpResponse(
-            shape_to_feature(geom), content_type='application/json')
+        return JsonResponse(shape_to_feature(geom), status=200)
     else:
         return JsonResponse(
             {
