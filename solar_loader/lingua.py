@@ -61,6 +61,14 @@ def shape_to_obj(shape):
     return geometry.mapping(shape)
 
 
+def shape_to_feature(shape, props=dict()):
+    return {
+        "type": "Feature",
+        "geometry": shape_to_obj(shape),
+        "properties": props,
+    }
+
+
 def make_feature(geom, props=dict()):
     return {
         "type": "Feature",
