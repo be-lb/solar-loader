@@ -2,6 +2,7 @@ from .geom import get_triangle_normal, get_triangle_center, get_triangle_area,\
     angle_between
 import numpy as np
 from click import secho
+import math
 
 
 def round5(f):
@@ -41,8 +42,12 @@ class GISTriangle:
 
     def _compute_azimuth(self):
         norm = self.get_norm()
-        self.azimuth = np.rad2deg(
-            angle_between(np.array([0, 1]), norm[:2]))
+
+        if norm[0] == 0 and norm[1] == 0:
+            self.azimuth = math.pi / 2
+        else:
+            self.azimuth = np.rad2deg(
+                angle_between(np.array([0, 1]), norm[:2]))
         self.azimuth5 = round5(self.azimuth)
 
     def get_azimuth5(self):
@@ -57,8 +62,12 @@ class GISTriangle:
 
     def _compute_inclination(self):
         norm = self.get_norm()
-        self.inclination = np.rad2deg(
-            angle_between(np.array([norm[0], norm[1], 0]), norm))
+
+        if norm[0] == 0 and norm[1] == 0:
+            self.inclination = 0
+        else:
+            self.inclination = np.rad2deg(
+                angle_between(np.array([norm[0], norm[1], 0]), norm))
         self.inclination5 = round5(self.inclination)
 
     def get_inclination(self):
