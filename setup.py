@@ -28,7 +28,9 @@ install_requires = [
 packages = find_packages()
 
 entry_points = {
-    'console_scripts': ['solar-loader=solar_loader.main:main'],
+    'console_scripts': [
+        'solar-loader=solar_loader.main:main',
+    ],
 }
 
 setup(
