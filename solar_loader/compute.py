@@ -100,6 +100,23 @@ def triangle_to_geojson(t):
     }
 
 
+# Time recording
+start = {}
+compute_time = {}
+
+
+def start_time_record(counter_name):
+    global start
+    start[counter_name] = perf_counter()
+
+
+def end_time_record(counter_name):
+    global compute_time
+    if counter_name not in compute_time:
+        compute_time[counter_name] = []
+    compute_time[counter_name].append(perf_counter() - start[counter_name])
+
+
 compute_gk_times = []
 
 
@@ -109,9 +126,6 @@ def worker(db, tmy, gis_triangles, day):
     logger.debug('Start {}-{}-{}'.format(day[0].year, day[0].month,
                                          day[0].day))
     daily_radiations = []
-
-    for t in gis_triangles:
-        t.init(db)
 
     for tim in day:
         # values for compute_ck
@@ -123,6 +137,8 @@ def worker(db, tmy, gis_triangles, day):
 
         hourly_radiations = []
         for gis_triangle in gis_triangles:
+            start_time_record('init_triangle')
+
             center = gis_triangle.center
             sunpos = get_sun_position(center, tim)
 
@@ -132,13 +148,6 @@ def worker(db, tmy, gis_triangles, day):
             triangle_azimuth = gis_triangle.get_azimuth()
             triangle_inclination = gis_triangle.get_inclination()
 
-            if math.isnan(triangle_azimuth) or math.isnan(
-                    triangle_inclination):
-                logger.info(
-                    'NAN azimuth or inclination for parcel id = {}, triangle id = {}'.
-                    format(gis_triangle.parcel_id, gis_triangle.id))
-                continue
-
             triangle_area = gis_triangle.area
             triangle_rdiso = gis_triangle.get_rdiso()
             triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
@@ -147,18 +156,25 @@ def worker(db, tmy, gis_triangles, day):
             sunvec = sunpos.coords - center
             sunvecunit = unit_vector(sunvec)
 
+            end_time_record('init_triangle')
+
             # radiation
-            start_rad = perf_counter()
+            start_time_record('gk_times')
             radiation_global, radiation_direct = compute_gk(
                 gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                 triangle_inclination, center[2], 1, month, tmy_index,
                 triangle_rdiso_flat, triangle_rdiso)
-            compute_gk_times.append(perf_counter() - start_rad)
+            end_time_record('gk_times')
+
+            start_time_record('intersect')
+            """
             logger.debug(
                 'compute_gk({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) \n>> radiation_global = {}, radiation_direct = {}'.
                 format(gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                        triangle_inclination, center[2], 1, month, tmy_index,
                        radiation_global, radiation_direct))
+            """
+
             # vector of length 0.1m towards sun position
             nearvec = sunvecunit * 0.1
             # vector of length 200m towards sun position
@@ -200,12 +216,16 @@ def worker(db, tmy, gis_triangles, day):
 
             intersection = None
 
-            for row in rows_with_geom(db, 'select_intersect',
-                                      (AsIs(polyhedr), ), 1):
+            row_intersect = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+            end_time_record('intersect')
+
+            start_time_record('shadow')
+            for row in row_intersect:
                 # get the geometry
                 solid = row[1]
                 # """
                 # apply same transformation than the flatten triangle
+
                 flatten_solid = transform_multipolygon(flat_mat, solid)
                 # drops its z
                 # solid_2d, zs = multipolygon_drop_z(flatten_solid)
@@ -219,21 +239,24 @@ def worker(db, tmy, gis_triangles, day):
                         elif it.geom_type == 'Polygon':
                             intersection = intersection.union(it)
                     except Exception as exc:
+                        logger.debug(str(triangle_2d.is_valid))
+                        logger.debug(str(s.is_valid))
                         print(str(exc))
 
             total_global = triangle_area * radiation_global
-            logger.debug('triangle_area = {}'.format(triangle_area))
+            # logger.debug('triangle_area = {}'.format(triangle_area))
             if intersection is None:
                 total_direct = triangle_area * radiation_direct
             else:
                 direct_area = intersection.area * triangle_area / triangle_2d.area
-                logger.debug(
-                    'intersection.area = {},  triangle_2d.area = {}'.format(
-                        intersection.area, triangle_2d.area))
+                # logger.debug(
+                #    'intersection.area = {},  triangle_2d.area = {}'.format(
+                #         intersection.area, triangle_2d.area))
                 total_direct = direct_area * radiation_direct
 
             hourly_radiations.append(total_direct + total_global)
             gis_triangle.radiations.append(total_direct + total_global)
+            end_time_record('shadow')
 
         daily_radiations.append(np.sum(hourly_radiations))
 
@@ -246,6 +269,7 @@ def worker(db, tmy, gis_triangles, day):
 def get_results(db, tmy, sample_interval, ground_id):
     start = perf_counter()
 
+    start_time_record('compute_triangles')
     # We start at equinox
     days = generate_sample_days(sample_interval)
 
@@ -256,12 +280,17 @@ def get_results(db, tmy, sample_interval, ground_id):
     ]
 
     triangles_row = []
-    for roof in roofs:
-        triangles_row.extend(tesselate(roof))
+    gis_triangles = []
 
-    gis_triangles = [
-        GISTriangle(t, i, ground_id) for i, t in enumerate(triangles_row)
-    ]
+    for i, roof in enumerate(roofs):
+        triangles = tesselate(roof)
+        for t in triangles:
+            gis_t = GISTriangle(t, i, ground_id)
+            gis_t.init(db)
+            gis_triangles.append(gis_t)
+        triangles_row.extend(triangles)
+
+    end_time_record('compute_triangles')
 
     logger.info(
         'Start processing {} triangles over {} roof surfaces for {} days'.
@@ -277,8 +306,10 @@ def get_results(db, tmy, sample_interval, ground_id):
     logger.info('radiations on {} amounts to {} KWh on {} m2'.format(
         ground_id, int(math.floor(np.sum(radiations) / 1000)), total_area))
     logger.info('Done {}'.format(perf_counter() - start))
-    logger.info('Time spent in compute_gk: n = {}, t = {}'.format(
-        len(compute_gk_times), np.sum(compute_gk_times)))
+
+    for cn in compute_time:
+        logger.info('Time spent in {}: n = {}, t = {} (s)'.format(
+            cn, len(compute_time[cn]), np.sum(compute_time[cn])))
     logger.info(
         '{} seconds spent in db with an average of {} seconds for {} executions'.
         format(db.total_time(), db.mean_time(), db.total_exec()))
