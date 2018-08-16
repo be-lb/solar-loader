@@ -15,7 +15,6 @@ from .sunpos import get_sun_position
 from .geom import tesselate, get_triangle_mat, transform_triangle,\
     unit_vector, transform_multipolygon, GeometryMissingDimension
 from .radiation import compute_gk
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 

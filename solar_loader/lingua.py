@@ -44,6 +44,10 @@ def quad_to_wkt(a, b, c, d):
     ])))
 
 
+def polycoords_to_wkt(coords):
+    return '(({}))'.format(', '.join(map(coord_to_wkt, coords)))
+
+
 def make_polyhedral(t0, t1):
     hs = [
         triangle_to_wkt(t0.a, t0.b, t0.c),
@@ -52,6 +56,25 @@ def make_polyhedral(t0, t1):
         quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
         triangle_to_wkt(t1.a, t1.c, t1.b),
     ]
+
+    return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
+        ', '.join(hs))
+
+
+def make_polyhedral_p(p0, p1):
+    cs0 = p0.exterior.coords
+    cs1 = list(reversed(p1.exterior.coords))
+    assert len(cs0) == len(
+        cs1), 'Cannot join polygons with different length in a polyhedral'
+    hs = [polycoords_to_wkt(cs0)]
+    for i, _ in enumerate(cs0):
+        if i + 1 < len(cs0):
+            a = cs0[i + 1]
+            b = cs0[i]
+            c = cs1[i]
+            d = cs1[i + 1]
+            hs.append(quad_to_wkt(a, b, c, d))
+    hs.append(polycoords_to_wkt(cs1))
 
     return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
         ', '.join(hs))

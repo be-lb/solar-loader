@@ -2,9 +2,16 @@ import click
 import attr
 import json
 
-from .pg import DB
+import django
+django.setup()
+
+from .store import Data
 from .tmy import TMY
 from .compute import get_results
+from django.conf import settings
+
+data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+tmy = TMY(settings.SOLAR_TMY)
 
 
 @attr.s
@@ -13,26 +20,21 @@ class ContextObj:
 
 
 @click.group()
-@click.pass_context
-@click.option('--config', type=click.File(), required=True)
-def cli(ctx, config):
-    ctx.obj.config = json.load(config)
+def cli():
+    pass
 
 
 @cli.command()
-@click.argument('ground_id', type=str, required=True)
-@click.argument('sample', type=int, default=30)
-@click.pass_context
-def ground(ctx, ground_id, sample):
-    config = ctx.obj.config
-    click.secho('Starting with a sample interval of {} days'.format(sample))
-    get_results(
-        DB(config['dsn'], config['tables']), TMY(config['tmy']), sample,
-        ground_id)
+@click.argument('capakey', type=str, required=True)
+@click.argument('sample_rate', type=int, default=30)
+def compute(capakey, sample_rate):
+    click.secho(
+        'Starting with a sample interval of {} days'.format(sample_rate))
+    get_results(data_store, tmy, sample_rate, capakey)
 
 
 def main():
-    cli(obj=ContextObj())
+    cli()
 
 
 if __name__ == '__main__':
