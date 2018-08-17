@@ -8,6 +8,10 @@ l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
 
+class SunposNight(Exception):
+    pass
+
+
 def sub(a, b):
     return a - b
 

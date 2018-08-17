@@ -32,6 +32,14 @@ def vec_dist(p, q):
     return math.sqrt(np.sum(np.square(p - q)))
 
 
+def vec3_add(a, b):
+    return [
+        a[0] + b[0],
+        a[1] + b[1],
+        a[2] + b[2],
+    ]
+
+
 def rotation_matrix(axis, theta):
     """
     Return the rotation matrix associated with counterclockwise rotation about

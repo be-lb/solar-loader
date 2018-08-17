@@ -1,5 +1,6 @@
 from pathlib import Path
 from time import perf_counter
+from psycopg2.extensions import AsIs
 import numpy as np
 from munch import munchify
 import logging
@@ -30,6 +31,26 @@ class QueryNotFound(Exception):
         self.message = 'Query "{}" Not Found'.format(expression)
 
 
+def format_q(q, args):
+    if len(args) > 0:
+        arg = args[0]
+        t = type(arg)
+
+        if t == str:
+            arg = '{}'.format(arg)
+        elif t == bytes:
+            arg = '{}'.format(arg)
+        elif t == AsIs:
+            arg = arg.getquoted().decode()
+
+        return format_q(q.replace('%s', arg), args[1:])
+        # try:
+        # except Exception as ex:
+        #     print('format_q: {} {}'.format(q, arg))
+        #     raise ex
+    return q
+
+
 class Data:
     def __init__(self, connection_name, tables):
         self._cn = connection_name
@@ -42,23 +63,23 @@ class Data:
                 return query
         raise QueryNotFound(query_name)
 
-    def rows(self, query_name, safe_params={}, *args):
+    def rows(self, query_name, safe_params={}, args=()):
+        logger.debug('SQL({}) on {}'.format(query_name, self._cn))
         conn = connections[self._cn]
         try:
             with conn.cursor() as cur:
                 q = self.find_query(query_name)
-                # if settings.DEBUG:
-                logger.debug('>> SQL({}) on {}'.format(query_name, self._cn))
-                logger.debug(q, args)
                 start_time = perf_counter()
                 for k in safe_params:
                     q = q.replace('__{}__'.format(k), safe_params[k])
-                cur.execute(q, *args)
+                cur.execute(q, args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:
                     yield row
         except Exception as ex:
-            logger.error('Error:DB:rows({}) \n{}'.format(query_name, ex))
+            logger.error(
+                'Error:DB:rows({})\n {} \n========================\n{}'.format(
+                    query_name, format_q(q, args), ex))
 
     def total_exec(self):
         return len(self._times)

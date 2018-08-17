@@ -8,14 +8,16 @@ from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from psycopg2.extensions import AsIs
-from shapely import geometry
+from shapely import geometry, wkb, wkt, affinity
+from django.conf import settings
 import logging
 from .records import Triangle
 from .gis_geom import GISTriangle
-from .lingua import make_polyhedral, rows_with_geom
-from .sunpos import get_sun_position
-from .geom import tesselate, get_triangle_mat, transform_triangle,\
-    unit_vector, transform_multipolygon, GeometryMissingDimension
+from .lingua import make_polyhedral_p, rows_with_geom, triangle_to_geojson
+from .sunpos import get_sun_position, SunposNight
+from .geom import (tesselate, get_triangle_mat, transform_triangle,
+                   unit_vector, transform_multipolygon,
+                   GeometryMissingDimension, vec3_add)
 from .radiation import compute_gk
 
 logger = logging.getLogger(__name__)
@@ -66,42 +68,6 @@ def same_triangle(t0, t1):
     return True
 
 
-def triangle_to_geojson(t):
-    return {
-        'type': 'Feature',
-        'properties': {
-            'id':
-            t.id,
-            'parcel_id':
-            t.parcel_id,
-            'typology':
-            '',
-            'productivity':
-            np.sum([t.radiations]),
-            'area':
-            t.area,
-            'azimuth':
-            t.get_azimuth()
-            if t.get_azimuth() and not math.isnan(t.get_azimuth()) else 0,
-            'tilt':
-            t.get_inclination() if t.get_inclination()
-            and not math.isnan(t.get_inclination()) else 0,
-        },
-        'geometry': {
-            'type':
-            'Polygon',
-            'coordinates': [
-                [
-                    t.geom.a.tolist(),
-                    t.geom.b.tolist(),
-                    t.geom.c.tolist(),
-                    t.geom.a.tolist(),
-                ],
-            ],
-        }
-    }
-
-
 # Time recording
 # start = {}
 # compute_time = {}
@@ -132,9 +98,77 @@ class TimeCounter:
 #     compute_time[counter_name].append(perf_counter() - start[counter_name])
 
 # compute_gk_times = []
+use_wkb = True
+if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
+    use_wkb = False
 
 
-def worker(db, tmy, gis_triangles, day):
+def rows_with_geom_t(db, select, params, geom_index):
+    if use_wkb:
+        with TimeCounter('rows_with_geom_t'):
+            for row in db.rows(select, {'conv_geom_operator': 'ST_AsBinary'},
+                               params):
+                row = list(row)
+                with TimeCounter('wkb.loads'):
+                    row[geom_index] = wkb.loads(row[geom_index], hex=False)
+                yield row
+    else:
+        with TimeCounter('rows_with_geom_t#{}'.format(select)):
+            for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
+                               params):
+                row = list(row)
+                with TimeCounter('wkt.loads'):
+                    row[geom_index] = wkt.loads(row[geom_index])
+                yield row
+
+
+def init_triangle(tim, gis_triangle):
+    center = gis_triangle.center
+    sunpos = get_sun_position(center, tim)
+
+    # if sunpos.is_daylight is False:
+    #     raise SunposNight()
+
+    triangle_azimuth = gis_triangle.get_azimuth()
+    triangle_inclination = gis_triangle.get_inclination()
+
+    triangle_area = gis_triangle.area
+    triangle_rdiso = gis_triangle.get_rdiso()
+    triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
+
+    return (center, sunpos, triangle_azimuth, triangle_inclination,
+            triangle_area, triangle_rdiso, triangle_rdiso_flat)
+
+
+class EmptyRoof(Exception):
+    pass
+
+
+def get_intersections(roof, gis_triangles, tim, db):
+    if len(gis_triangles) == 0:
+        raise EmptyRoof()
+
+    gis_triangle = gis_triangles[0]
+
+    center, sunpos, _, _, _, _, _ = init_triangle(tim, gis_triangle)
+    sunvec = sunpos.coords - center
+    sunvecunit = unit_vector(sunvec)
+
+    # vector of length 0.1m towards sun position
+    nearvec = sunvecunit * 0.1
+    # vector of length 200m towards sun position
+    farvec = sunvecunit * 200
+
+    poly_near = affinity.translate(roof[0], nearvec[0], nearvec[1], nearvec[2])
+    poly_far = affinity.translate(roof[0], farvec[0], farvec[1], farvec[2])
+
+    # a polyhedral surface from roof towards sun
+    polyhedr = make_polyhedral_p(poly_near, poly_far)
+
+    return rows_with_geom_t(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+
+
+def worker(db, tmy, t_roofs, day):
     start_time = perf_counter()
     logger.debug('Start {}-{}-{}'.format(day[0].year, day[0].month,
                                          day[0].day))
@@ -149,76 +183,39 @@ def worker(db, tmy, gis_triangles, day):
         tmy_index = tmy.get_index(tim)
 
         hourly_radiations = []
-        for gis_triangle in gis_triangles:
-            with TimeCounter('init_triangle'):
-                center = gis_triangle.center
-                sunpos = get_sun_position(center, tim)
 
-                if sunpos.is_daylight is False:
-                    continue
+        for roof, gis_triangles in t_roofs:
+            try:
+                row_intersect = get_intersections(roof, gis_triangles, tim, db)
+            except EmptyRoof:
+                continue
 
-                triangle_azimuth = gis_triangle.get_azimuth()
-                triangle_inclination = gis_triangle.get_inclination()
+            for gis_triangle in gis_triangles:
+                with TimeCounter('init_triangle'):
+                    center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
+                        tim, gis_triangle)
 
-                triangle_area = gis_triangle.area
-                triangle_rdiso = gis_triangle.get_rdiso()
-                triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
+                    if sunpos.is_daylight is False:
+                        continue
 
-                # vector from center of triangle to sun position
+                # # vector from center of triangle to sun position
                 sunvec = sunpos.coords - center
-                sunvecunit = unit_vector(sunvec)
+                # sunvecunit = unit_vector(sunvec)
 
-            # end_time_record('init_triangle')
-
-            # radiation
-            with TimeCounter('gk_times'):
-                radiation_global, radiation_direct = compute_gk(
-                    gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
-                    triangle_inclination, center[2], 1, month, tmy_index,
-                    triangle_rdiso_flat, triangle_rdiso)
-            # end_time_record('gk_times')
-
-            with TimeCounter('intersect'):
-                """
-                logger.debug(
-                    'compute_gk({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}) \n>> radiation_global = {}, radiation_direct = {}'.
-                    format(gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
+                # radiation
+                with TimeCounter('radiations'):
+                    radiation_global, radiation_direct = compute_gk(
+                        gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                         triangle_inclination, center[2], 1, month, tmy_index,
-                        radiation_global, radiation_direct))
-                """
-
-                # vector of length 0.1m towards sun position
-                nearvec = sunvecunit * 0.1
-                # vector of length 200m towards sun position
-                farvec = sunvecunit * 200
-
-                triangle_near = Triangle(gis_triangle.geom.a + nearvec,
-                                         gis_triangle.geom.b + nearvec,
-                                         gis_triangle.geom.c + nearvec)
-                triangle_far = Triangle(gis_triangle.geom.a + farvec,
-                                        gis_triangle.geom.b + farvec,
-                                        gis_triangle.geom.c + farvec)
-
-                # a polyhedral surface from roof towards sun
-                polyhedr = make_polyhedral(triangle_near, triangle_far)
+                        triangle_rdiso_flat, triangle_rdiso)
 
                 try:
                     flat_mat = get_triangle_mat(sunvec)
-                    # flat_mat_inv = np.linalg.inv(flat_mat) -- not used
                 except GeometryMissingDimension:
                     continue
 
                 flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
-                # flat_triangle_z = [
-                #     flat_triangle.a[2],
-                #     flat_triangle.b[2],
-                #     flat_triangle.c[2],
-                #     flat_triangle.a[2],
-                # ]
 
-                # assert (same_triangle(triangle,
-                #                       transform_triangle(flat_mat_inv,
-                #                                          flat_triangle)))
                 triangle_2d = geometry.Polygon([
                     flat_triangle.a[:2],
                     flat_triangle.b[:2],
@@ -228,54 +225,39 @@ def worker(db, tmy, gis_triangles, day):
 
                 intersection = None
 
-                row_intersect = rows_with_geom(db, 'select_intersect',
-                                               (AsIs(polyhedr), ), 1)
                 # end_time_record('intersect')
 
-            with TimeCounter('shadow'):
-                for row in row_intersect:
-                    # get the geometry
-                    solid = row[1]
-                    # """
-                    # apply same transformation than the flatten triangle
-                    with TimeCounter('shadow:flatten'):
+                with TimeCounter('shadow'):
+                    for row in row_intersect:
+                        # get the geometry
+                        solid = row[1]
+                        # apply same transformation than the flatten triangle
                         flatten_solid = transform_multipolygon(flat_mat, solid)
-                        # end_time_record('shadow:flatten')
-                    # drops its z
-                    # solid_2d, zs = multipolygon_drop_z(flatten_solid)
+                        # drops its z
+                        # solid_2d, zs = multipolygon_drop_z(flatten_solid)
 
-                    for s in flatten_solid:
-                        try:
-                            with TimeCounter(
-                                    'shadow:triangle_2d.intersection'):
+                        for s in flatten_solid:
+                            try:
                                 it = triangle_2d.intersection(s)
-                                # end_time_record('shadow:triangle_2d.intersection')
-
-                            if intersection is None:
-                                intersection = it
-                            elif it.geom_type == 'Polygon':
-                                with TimeCounter('shadow:union'):
+                                if intersection is None:
+                                    intersection = it
+                                elif it.geom_type == 'Polygon':
                                     intersection = intersection.union(it)
-                                    # end_time_record('shadow:union')
-                        except Exception as exc:
-                            logger.debug(str(triangle_2d.is_valid))
-                            logger.debug(str(s.is_valid))
-                            print(str(exc))
+                            except Exception as exc:
+                                logger.debug(str(triangle_2d.is_valid))
+                                logger.debug(str(s.is_valid))
+                                print(str(exc))
 
-                total_global = triangle_area * radiation_global
-                # logger.debug('triangle_area = {}'.format(triangle_area))
-                if intersection is None:
-                    total_direct = triangle_area * radiation_direct
-                else:
-                    direct_area = intersection.area * triangle_area / triangle_2d.area
-                    # logger.debug(
-                    #    'intersection.area = {},  triangle_2d.area = {}'.format(
-                    #         intersection.area, triangle_2d.area))
-                    total_direct = direct_area * radiation_direct
+                    total_global = triangle_area * radiation_global
+                    if intersection is None:
+                        total_direct = triangle_area * radiation_direct
+                    else:
+                        direct_area = intersection.area * triangle_area / triangle_2d.area
+                        total_direct = direct_area * radiation_direct
 
-                hourly_radiations.append(total_direct + total_global)
-                gis_triangle.radiations.append(total_direct + total_global)
-                # end_time_record('shadow')
+                    hourly_radiations.append(total_direct + total_global)
+                    gis_triangle.radiations.append(total_direct + total_global)
+                    # end of shadow
 
         daily_radiations.append(np.sum(hourly_radiations))
 
@@ -312,16 +294,21 @@ def get_results(db, tmy, sample_interval, ground_id):
                 ground_id, ), 0)
         ]
 
-        triangles_row = []
-        gis_triangles = []
+        # triangles_row = []
+        t_roofs = []
 
         for i, roof in enumerate(roofs):
+            gis_triangles = []
             triangles = tesselate(roof)
             for t in triangles:
                 gis_t = GISTriangle(t, i, ground_id)
                 gis_t.init(db)
                 gis_triangles.append(gis_t)
-            triangles_row.extend(triangles)
+            t_roofs.append((
+                roof,
+                gis_triangles,
+            ))
+            # triangles_row.extend(triangles)
 
         # end_time_record('compute_triangles')
 
@@ -332,7 +319,7 @@ def get_results(db, tmy, sample_interval, ground_id):
 
     with ThreadPoolExecutor() as executor:
         for daily_radiation in executor.map(
-                partial(worker, db, tmy, gis_triangles), days):
+                partial(worker, db, tmy, t_roofs), days):
             radiations.append(daily_radiation * float(sample_interval))
 
     total_area = np.sum([t.area for t in gis_triangles])
