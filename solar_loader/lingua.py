@@ -68,7 +68,8 @@ def make_polyhedral(t0, t1):
         ', '.join(hs))
 
 
-def sort_point_clockwise(pts):
+# def sort_point_clockwise(pts):
+
 
 def triangles_to_surface(ts):
     return [triangle_to_wkt(t.a, t.b, t.c) for t in ts]
