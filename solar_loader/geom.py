@@ -1,5 +1,5 @@
 import math
-from functools import partial
+from functools import partial, reduce
 import numpy as np
 from shapely import geometry, ops
 from .records import Triangle
@@ -189,6 +189,64 @@ def angle_between(v1, v2):
     >>> angle_between((1, 0, 0), (-1, 0, 0))
     3.141592653589793
     """
-    v1_u = unit_vector(v1)
-    v2_u = unit_vector(v2)
+    v1_u = unit_vector(np.array(v1))
+    v2_u = unit_vector(np.array(v2))
     return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+
+def foreach_coords(f):
+    def inner(poly):
+        for coord in poly.exterior.coords:
+            f(coord)
+
+    return inner
+
+
+def reduce_coords(f, ini):
+    def inner(poly):
+        return reduce(f, poly.exterior.coords, ini)
+
+    return inner
+
+
+def op_coord(op, i, base, coord):
+    return op(base, coord[i])
+
+
+positive_infinity = float('inf')
+negative_infinity = float('-inf')
+
+poly_min_x = reduce_coords(partial(op_coord, min, 0), positive_infinity)
+poly_min_y = reduce_coords(partial(op_coord, min, 1), positive_infinity)
+poly_min_z = reduce_coords(partial(op_coord, min, 2), positive_infinity)
+poly_max_x = reduce_coords(partial(op_coord, max, 0), negative_infinity)
+poly_max_y = reduce_coords(partial(op_coord, max, 1), negative_infinity)
+poly_max_z = reduce_coords(partial(op_coord, max, 2), negative_infinity)
+
+
+def poly_bbox(poly):
+    return (
+        poly_min_x(poly),
+        poly_min_y(poly),
+        poly_min_z(poly),
+        poly_max_x(poly),
+        poly_max_y(poly),
+        poly_max_z(poly),
+    )
+
+
+def multipoly_bbox(mp):
+    return (
+        reduce(lambda acc, poly: min(acc, poly_min_x(poly)), mp,
+               positive_infinity),
+        reduce(lambda acc, poly: min(acc, poly_min_y(poly)), mp,
+               positive_infinity),
+        reduce(lambda acc, poly: min(acc, poly_min_z(poly)), mp,
+               positive_infinity),
+        reduce(lambda acc, poly: max(acc, poly_max_x(poly)), mp,
+               negative_infinity),
+        reduce(lambda acc, poly: max(acc, poly_max_y(poly)), mp,
+               negative_infinity),
+        reduce(lambda acc, poly: max(acc, poly_max_z(poly)), mp,
+               negative_infinity),
+    )

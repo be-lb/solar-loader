@@ -1,8 +1,11 @@
 import math
+import logging
 import numpy as np
-from shapely import geometry, wkb, wkt
+from shapely import geometry, wkb, wkt, ops
 from django.conf import settings
-from .geom import tesselate
+from .geom import tesselate, angle_between
+
+logger = logging.getLogger(__name__)
 
 # to say if we use wkb or wkt to communicate with the db
 use_wkb = True
@@ -24,7 +27,12 @@ def rows_with_geom(db, select, params, geom_index):
         for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
                            params):
             row = list(row)
-            row[geom_index] = wkt.loads(row[geom_index])
+            try:
+                row[geom_index] = wkt.loads(row[geom_index])
+            except Exception as ex:
+                logger.error('could not read "{}"\n{}'.format(
+                    row[geom_index], ex))
+                continue
             yield row
 
 
@@ -68,15 +76,68 @@ def make_polyhedral(t0, t1):
         ', '.join(hs))
 
 
-# def sort_point_clockwise(pts):
+NOON = [0, 1]
 
 
-def triangles_to_surface(ts):
-    return [triangle_to_wkt(t.a, t.b, t.c) for t in ts]
+def angle_from_noon(pt):
+    return angle_between(NOON, [pt[0], pt[1]])
+
+
+def sort_point_clockwise(pts):
+    return sorted(pts, key=angle_from_noon)
+
+
+def sort_point_counterclockwise(pts):
+    return sorted(pts, key=angle_from_noon, reverse=True)
+
+
+def triangle_to_wkt_cw(t):
+    a, b, c = sort_point_clockwise([t.a, t.b, t.c])
+    return triangle_to_wkt(a, b, c)
+
+
+def triangle_to_wkt_ccw(t):
+    a, b, c = sort_point_counterclockwise([t.a, t.b, t.c])
+    return triangle_to_wkt(a, b, c)
 
 
 def triangles_to_surface_cc(ts):
-    return [triangle_to_wkt(t.a, t.c, t.b) for t in ts]
+    # return [triangle_to_wkt(t.a, t.b, t.c) for t in ts]
+    return map(triangle_to_wkt_cw, ts)
+
+
+def triangles_to_surface_ccw(ts):
+    # return [triangle_to_wkt(t.a, t.c, t.b) for t in ts]
+    return map(triangle_to_wkt_ccw, ts)
+
+
+def make_polyhedral_p_0(p0, p1):
+    cs0 = p0.exterior.coords
+    cs1 = p1.exterior.coords
+    assert len(cs0) == len(
+        cs1), 'Cannot join polygons with different length in a polyhedral'
+
+    # ts0 = tesselate(p0)
+    # ts1 = tesselate(p1)
+
+    # hs = [polycoords_to_wkt(cs0)]
+    # hs = list(triangles_to_surface_cc(ts0))
+    hs = []
+    for i, _ in enumerate(cs0):
+        if i + 1 < len(cs0):
+            a = cs0[i]
+            b = cs1[i]
+            c = cs1[i + 1]
+            d = cs0[i + 1]
+            # hs.append(quad_to_wkt(a, b, c, d))
+            hs.append(triangle_to_wkt(a, b, c))
+            hs.append(triangle_to_wkt(a, c, d))
+
+    # hs.append(polycoords_to_wkt(list(reversed(cs1))))
+    # hs.extend(triangles_to_surface_ccw(ts1))
+
+    return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
+        ', '.join(hs))
 
 
 def make_polyhedral_p(p0, p1):
@@ -85,24 +146,26 @@ def make_polyhedral_p(p0, p1):
     assert len(cs0) == len(
         cs1), 'Cannot join polygons with different length in a polyhedral'
 
-    ts0 = tesselate(p0)
-    ts1 = tesselate(p1)
-
-    # hs = [polycoords_to_wkt(cs0)]
-    hs = triangles_to_surface(ts0)
+    polys = []
     for i, _ in enumerate(cs0):
         if i + 1 < len(cs0):
             a = cs0[i]
             b = cs1[i]
             c = cs1[i + 1]
             d = cs0[i + 1]
-            hs.append(quad_to_wkt(a, b, c, d))
+            polys.append(geometry.Polygon([a, b, c, d, a]))
 
-    # hs.append(polycoords_to_wkt(list(reversed(cs1))))
-    hs.extend(triangles_to_surface_cc(ts1))
+    mp = geometry.MultiPolygon(polys)
 
-    return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
-        ', '.join(hs))
+    return 'ST_GeomFromText(\'{}\', 31370)'.format(mp.to_wkt())
+
+
+def make_polyhedral_extrude(p0, x, y, z):
+    ts0 = tesselate(p0)
+    base = 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
+        ', '.join(triangles_to_surface_cc(ts0)))
+
+    return 'ST_Extrude({}, {}, {}, {})'.format(base, x, y, z)
 
 
 def shape_to_obj(shape):

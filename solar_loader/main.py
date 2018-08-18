@@ -1,3 +1,4 @@
+import os
 import click
 import attr
 import json
@@ -7,7 +8,7 @@ django.setup()
 
 from .store import Data
 from .tmy import TMY
-from .compute import get_results
+from .compute import get_results, get_results_2
 from .radiation_cache import mk_cache
 from django.conf import settings
 
@@ -31,7 +32,10 @@ def cli():
 def compute(capakey, sample_rate):
     click.secho(
         'Starting with a sample interval of {} days'.format(sample_rate))
-    get_results(data_store, tmy, sample_rate, capakey)
+    if 'SOLAR2' in os.environ.keys():
+        get_results_2(data_store, tmy, sample_rate, capakey)
+    else:
+        get_results(data_store, tmy, sample_rate, capakey)
 
 
 @cli.command()
