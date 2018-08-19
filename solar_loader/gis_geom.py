@@ -2,6 +2,7 @@ from .geom import get_triangle_normal, get_triangle_center, get_triangle_area,\
     angle_between
 import numpy as np
 from click import secho
+from shapely import geometry
 import math
 
 
@@ -34,6 +35,14 @@ class GISTriangle:
         self._compute_azimuth()
         self._compute_inclination()
         self._compute_rdiso_rdiso_flat(db)
+
+    def to_polygon(self):
+        return geometry.Polygon([
+            self.geom.a.tolist(),
+            self.geom.b.tolist(),
+            self.geom.c.tolist(),
+            self.geom.a.tolist(),
+        ])
 
     def get_norm(self):
         # if self.norm is None:
