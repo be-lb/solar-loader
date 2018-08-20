@@ -316,38 +316,46 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
             intersection.area * triangle_area / triangle_2d.area)
 
 
-def worker3(db, tmy, gis_triangle_tim):
-    gis_triangle, tim = gis_triangle_tim
-    gh = tmy.get_float('Global Horizontal Radiation', tim)
-    dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
+def worker3(db, tmy, gis_triangles, day):
     alb = 0.2
-    month = tim.month
-    tmy_index = tmy.get_index(tim)
-    with TimeCounter('triangle'):
-        center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
-            tim, gis_triangle)
+    daily_radiations = []
 
-        if sunpos.is_daylight is False:
-            return 0
+    for tim in day:
+        gh = tmy.get_float('Global Horizontal Radiation', tim)
+        dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
+        month = tim.month
+        tmy_index = tmy.get_index(tim)
+        hourly_radiations = []
+        for gis_triangle in gis_triangles:
+            with TimeCounter('triangle'):
+                center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
+                    tim, gis_triangle)
 
-        # vector from center of triangle to sun position
-        sunvec = sunpos.coords - center
+                if sunpos.is_daylight is False:
+                    continue
 
-        # radiation
-        with TimeCounter('radiations'):
-            radiation_global, radiation_direct = compute_gk(
-                gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
-                triangle_inclination, center[2], 1, month, tmy_index,
-                triangle_rdiso_flat, triangle_rdiso)
+                # vector from center of triangle to sun position
+                sunvec = sunpos.coords - center
 
-        direct_area = get_exposed_area(
-            gis_triangle, triangle_area, sunvec,
-            get_intersections_for_triangle(gis_triangle, tim, db))
-        total_global = triangle_area * radiation_global
-        total_direct = direct_area * radiation_direct
+                # radiation
+                with TimeCounter('radiations'):
+                    radiation_global, radiation_direct = compute_gk(
+                        gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
+                        triangle_inclination, center[2], 1, month, tmy_index,
+                        triangle_rdiso_flat, triangle_rdiso)
 
-        gis_triangle.radiations.append(total_direct + total_global)
-        return total_direct + total_global
+                direct_area = get_exposed_area(
+                    gis_triangle, triangle_area, sunvec,
+                    get_intersections_for_triangle(gis_triangle, tim, db))
+                total_global = triangle_area * radiation_global
+                total_direct = direct_area * radiation_direct
+
+                gis_triangle.radiations.append(total_direct + total_global)
+                hourly_radiations.append(total_direct + total_global)
+
+        daily_radiations.append(np.sum(hourly_radiations))
+
+    return np.sum(daily_radiations)
 
 
 def worker(db, tmy, t_roofs, day):
@@ -399,56 +407,6 @@ def worker(db, tmy, t_roofs, day):
                         gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                         triangle_inclination, center[2], 1, month, tmy_index,
                         triangle_rdiso_flat, triangle_rdiso)
-
-                # try:
-                #     flat_mat = get_triangle_mat(sunvec)
-                # except GeometryMissingDimension:
-                #     continue
-
-                # flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
-
-                # triangle_2d = geometry.Polygon([
-                #     flat_triangle.a[:2],
-                #     flat_triangle.b[:2],
-                #     flat_triangle.c[:2],
-                #     flat_triangle.a[:2],
-                # ])
-
-                # intersection = None
-
-                # # end_time_record('intersect')
-
-                # for row in row_intersect:
-                #     with TimeCounter('intersect.compute'):
-                #         # get the geometry
-                #         solid = row[1]
-                #         # apply same transformation than the flatten triangle
-                #         flatten_solid = transform_multipolygon(flat_mat, solid)
-                #         # drops its z
-                #         # solid_2d, zs = multipolygon_drop_z(flatten_solid)
-
-                #         for s in flatten_solid:
-                #             try:
-                #                 it = triangle_2d.intersection(s)
-                #                 if intersection is None:
-                #                     intersection = it
-                #                 elif it.geom_type == 'Polygon':
-                #                     intersection = intersection.union(it)
-                #             except Exception as exc:
-                #                 logger.debug(str(triangle_2d.is_valid))
-                #                 logger.debug(str(s.is_valid))
-                #                 print(str(exc))
-
-                # total_global = triangle_area * radiation_global
-                # if intersection is None:
-                #     total_direct = triangle_area * radiation_direct
-                #     print('R: None')
-                # else:
-                #     direct_area = intersection.area * triangle_area / triangle_2d.area
-                #     print('R: {} {:.2f} {:.2f} {:.2f}'.format(
-                #         len(row_intersect), intersection.area,
-                #         triangle_2d.area, direct_area))
-                #     total_direct = direct_area * radiation_direct
                 direct_area = get_exposed_area(gis_triangle, triangle_area,
                                                sunvec, row_intersect)
                 total_global = triangle_area * radiation_global
@@ -595,8 +553,8 @@ def get_results(db, tmy, sample_interval, ground_id):
 
         # we get roofs for this ground
         roofs = [
-            row[0] for row in rows_with_geom(db, 'select_roof_within', (
-                ground_id, ), 0)
+            row[1] for row in rows_with_geom(db, 'select_roof_within', (
+                ground_id, ), 1)
         ]
 
         t_roofs = make_t_roofs(db, ground_id, roofs)
@@ -630,6 +588,42 @@ def get_results(db, tmy, sample_interval, ground_id):
         for t in gis_triangles:
             t.radiations = t.radiations * sample_interval
             features.append(triangle_to_geojson(t))
+
+    return {
+        "type": "FeatureCollection",
+        "crs": {
+            "type": "name",
+            "properties": {
+                "name": "urn:ogc:def:crs:EPSG::31370"
+            }
+        },
+        "features": features,
+        "radiations": radiations,
+    }
+
+
+def get_results_roof(db, tmy, sample_interval, roof_id):
+    times_queue.clear()
+    days = generate_sample_days(sample_interval)
+    roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
+    gis_triangles = []
+    for t in tesselate(roof[1]):
+        gis_t = GISTriangle(t)
+        gis_t.init(db)
+        gis_triangles.append(gis_t)
+
+    radiations = []
+
+    with TimeCounter('total'):
+        with ThreadPoolExecutor() as executor:
+            for daily_radiation in executor.map(
+                    partial(worker3, db, tmy, gis_triangles), days):
+                radiations.append(daily_radiation * float(sample_interval))
+
+    features = []
+    for t in gis_triangles:
+        t.radiations = t.radiations * sample_interval
+        features.append(triangle_to_geojson(t))
 
     return {
         "type": "FeatureCollection",

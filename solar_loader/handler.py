@@ -21,7 +21,7 @@ from django.views.decorators.cache import cache_page
 
 from .store import Data
 from .tmy import TMY
-from .compute import get_results
+from .compute import get_results_roof
 from .radiation_cache import mk_cache
 from .lingua import make_feature, make_feature_collection, rows_with_geom, shape_to_feature
 
@@ -38,12 +38,24 @@ def capakey_out(capakey):
     return capakey.replace('/', '-')
 
 
-@cache_page(60 * 60)
-def handle_request(request, capakey):
+def get_roofs(request, capakey):
     """
-    Compute the raditiaions for the parcel with capakey as cadastral number
+    Get roofs for a given capakey
     """
-    results = get_results(data_store, tmy, sample_rate, capakey_in(capakey))
+    roofs = []
+    for row in rows_with_geom(data_store, 'select_roof_within',
+                              (capakey_in(capakey), ), 1):
+        roofs.append(row[0])
+
+    return JsonResponse(dict(roofs=roofs))
+
+
+def get_radiation(request, roof):
+    """
+    Compute radiation for a roof
+    """
+    results = get_results_roof(data_store, tmy, sample_rate, int(
+        roof, base=10))
     return JsonResponse(results)
 
 
