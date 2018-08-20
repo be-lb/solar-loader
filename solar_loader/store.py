@@ -85,8 +85,8 @@ class Data:
                     yield row
         except Exception as ex:
             logger.error(
-                'Error:DB:rows({})\n {} \n========================\n{}'.format(
-                    query_name, format_q(q, args), ex))
+                'Error:DB:rows({})\n========================\n{}'.format(
+                    query_name, ex))
 
     def total_exec(self):
         return len(self._times)
