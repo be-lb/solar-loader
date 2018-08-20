@@ -43,7 +43,7 @@ def format_q(q, args):
         elif t == AsIs:
             arg = arg.getquoted().decode()
 
-        return format_q(q.replace('%s', arg), args[1:])
+        return format_q(q.replace('%s', str(arg)), args[1:])
         # try:
         # except Exception as ex:
         #     print('format_q: {} {}'.format(q, arg))
@@ -63,6 +63,11 @@ class Data:
                 return query
         raise QueryNotFound(query_name)
 
+    def exec(self, query_name, args=()):
+        conn = connections[self._cn]
+        with conn.cursor() as cur:
+            cur.execute(self.find_query(query_name), args)
+
     def rows(self, query_name, safe_params={}, args=()):
         logger.debug('SQL({}) on {}'.format(query_name, self._cn))
         conn = connections[self._cn]
@@ -72,6 +77,8 @@ class Data:
                 start_time = perf_counter()
                 for k in safe_params:
                     q = q.replace('__{}__'.format(k), safe_params[k])
+                # print('+++++ SQL({}) ++++++++++++++++++++'.format(query_name))
+                # print(format_q(q, args))
                 cur.execute(q, args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:

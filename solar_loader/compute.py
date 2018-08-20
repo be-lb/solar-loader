@@ -236,9 +236,9 @@ def get_intersections_for_triangle(gis_triangle, tim, db):
     sunvecunit = unit_vector(sunvec)
 
     # vector of length 0.1m towards sun position
-    nearvec = sunvecunit * 0.1
+    nearvec = sunvecunit * 1.0  #0.1
     # vector of length 200m towards sun position
-    farvec = sunvecunit * 200
+    farvec = sunvecunit * 200.0
 
     # layered polygons
     # polys = geometry.MultiPolygon(
@@ -248,9 +248,14 @@ def get_intersections_for_triangle(gis_triangle, tim, db):
     # polyhedr = 'ST_GeomFromText(\'{}\', 31370)'.format(wkt.dumps(polys))
 
     # back to real polyhedral
-    t0 = Triangle(*vec3_add(gis_triangle.geom, nearvec))
-    t1 = Triangle(*vec3_add(gis_triangle.geom, farvec))
-    polyhedr = make_polyhedral(t0, t1)
+    triangle_near = Triangle(gis_triangle.geom.a + nearvec,
+                             gis_triangle.geom.b + nearvec,
+                             gis_triangle.geom.c + nearvec)
+    triangle_far = Triangle(gis_triangle.geom.a + farvec,
+                            gis_triangle.geom.b + farvec,
+                            gis_triangle.geom.c + farvec)
+    polyhedr = make_polyhedral(triangle_near, triangle_far)
+    # db.exec('insert_polyhedral', (tim, AsIs(polyhedr)))
 
     # a polyhedral surface from roof towards sun
     # poly_near = affinity.translate(gis_triangle.to_polygon(), nearvec[0],
@@ -305,7 +310,10 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
     if intersection is None:
         return triangle_area
     else:
-        return intersection.area * triangle_area / triangle_2d.area
+        # print('R: {} {:.2f} {:.2f}'.format(
+        #     len(row_intersect), intersection.area, triangle_2d.area))
+        return triangle_area - (
+            intersection.area * triangle_area / triangle_2d.area)
 
 
 def worker3(db, tmy, gis_triangle_tim):
@@ -392,54 +400,59 @@ def worker(db, tmy, t_roofs, day):
                         triangle_inclination, center[2], 1, month, tmy_index,
                         triangle_rdiso_flat, triangle_rdiso)
 
-                try:
-                    flat_mat = get_triangle_mat(sunvec)
-                except GeometryMissingDimension:
-                    continue
+                # try:
+                #     flat_mat = get_triangle_mat(sunvec)
+                # except GeometryMissingDimension:
+                #     continue
 
-                flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
+                # flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
 
-                triangle_2d = geometry.Polygon([
-                    flat_triangle.a[:2],
-                    flat_triangle.b[:2],
-                    flat_triangle.c[:2],
-                    flat_triangle.a[:2],
-                ])
+                # triangle_2d = geometry.Polygon([
+                #     flat_triangle.a[:2],
+                #     flat_triangle.b[:2],
+                #     flat_triangle.c[:2],
+                #     flat_triangle.a[:2],
+                # ])
 
-                intersection = None
+                # intersection = None
 
-                # end_time_record('intersect')
+                # # end_time_record('intersect')
 
-                for row in row_intersect:
-                    with TimeCounter('intersect.compute'):
-                        # get the geometry
-                        solid = row[1]
-                        # apply same transformation than the flatten triangle
-                        flatten_solid = transform_multipolygon(flat_mat, solid)
-                        # drops its z
-                        # solid_2d, zs = multipolygon_drop_z(flatten_solid)
+                # for row in row_intersect:
+                #     with TimeCounter('intersect.compute'):
+                #         # get the geometry
+                #         solid = row[1]
+                #         # apply same transformation than the flatten triangle
+                #         flatten_solid = transform_multipolygon(flat_mat, solid)
+                #         # drops its z
+                #         # solid_2d, zs = multipolygon_drop_z(flatten_solid)
 
-                        for s in flatten_solid:
-                            try:
-                                it = triangle_2d.intersection(s)
-                                if intersection is None:
-                                    intersection = it
-                                elif it.geom_type == 'Polygon':
-                                    intersection = intersection.union(it)
-                            except Exception as exc:
-                                logger.debug(str(triangle_2d.is_valid))
-                                logger.debug(str(s.is_valid))
-                                print(str(exc))
+                #         for s in flatten_solid:
+                #             try:
+                #                 it = triangle_2d.intersection(s)
+                #                 if intersection is None:
+                #                     intersection = it
+                #                 elif it.geom_type == 'Polygon':
+                #                     intersection = intersection.union(it)
+                #             except Exception as exc:
+                #                 logger.debug(str(triangle_2d.is_valid))
+                #                 logger.debug(str(s.is_valid))
+                #                 print(str(exc))
 
+                # total_global = triangle_area * radiation_global
+                # if intersection is None:
+                #     total_direct = triangle_area * radiation_direct
+                #     print('R: None')
+                # else:
+                #     direct_area = intersection.area * triangle_area / triangle_2d.area
+                #     print('R: {} {:.2f} {:.2f} {:.2f}'.format(
+                #         len(row_intersect), intersection.area,
+                #         triangle_2d.area, direct_area))
+                #     total_direct = direct_area * radiation_direct
+                direct_area = get_exposed_area(gis_triangle, triangle_area,
+                                               sunvec, row_intersect)
                 total_global = triangle_area * radiation_global
-                if intersection is None:
-                    total_direct = triangle_area * radiation_direct
-                    print('R: {} {:.2f}'.format(len(row_intersect), 100))
-                else:
-                    direct_area = intersection.area * triangle_area / triangle_2d.area
-                    print('R: {} {:.2f}'.format(
-                        len(row_intersect), direct_area * 100.0 / triangle_area))
-                    total_direct = direct_area * radiation_direct
+                total_direct = direct_area * radiation_direct
 
                 hourly_radiations.append(total_direct + total_global)
                 gis_triangle.radiations.append(total_direct + total_global)
@@ -574,6 +587,7 @@ def get_triangles(db, ground_id, roofs):
 
 def get_results(db, tmy, sample_interval, ground_id):
     times_queue.clear()
+    # db.exec('truncate_polyhedrals', ())
 
     with TimeCounter('compute_triangles'):
         # We start at equinox
