@@ -316,7 +316,7 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
             intersection.area * triangle_area / triangle_2d.area)
 
 
-def worker3(db, tmy, gis_triangles, day):
+def worker3(db, tmy, gis_triangles, with_shadows, day):
     alb = 0.2
     daily_radiations = []
 
@@ -344,9 +344,12 @@ def worker3(db, tmy, gis_triangles, day):
                         triangle_inclination, center[2], 1, month, tmy_index,
                         triangle_rdiso_flat, triangle_rdiso)
 
-                direct_area = get_exposed_area(
-                    gis_triangle, triangle_area, sunvec,
-                    get_intersections_for_triangle(gis_triangle, tim, db))
+                if with_shadows:
+                    direct_area = get_exposed_area(
+                        gis_triangle, triangle_area, sunvec,
+                        get_intersections_for_triangle(gis_triangle, tim, db))
+                else:
+                    direct_area = triangle_area
                 total_global = triangle_area * radiation_global
                 total_direct = direct_area * radiation_direct
 
@@ -602,7 +605,7 @@ def get_results(db, tmy, sample_interval, ground_id):
     }
 
 
-def get_results_roof(db, tmy, sample_interval, roof_id):
+def get_results_roof(db, tmy, sample_interval, roof_id, with_shadows=False):
     times_queue.clear()
     days = generate_sample_days(sample_interval)
     roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
@@ -617,7 +620,8 @@ def get_results_roof(db, tmy, sample_interval, roof_id):
     with TimeCounter('total'):
         with ThreadPoolExecutor() as executor:
             for daily_radiation in executor.map(
-                    partial(worker3, db, tmy, gis_triangles), days):
+                    partial(worker3, db, tmy, gis_triangles, with_shadows),
+                    days):
                 radiations.append(daily_radiation * float(sample_interval))
 
     features = []
