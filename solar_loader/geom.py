@@ -77,7 +77,17 @@ def get_triangle_normal(t):
 
     see https://en.wikipedia.org/wiki/Cross_product
     """
-    return np.cross(t.c - t.a, t.b - t.a)
+    a = np.cross(
+        t.b - t.a,
+        t.c - t.a,
+    )
+    b = np.cross(
+        t.b - t.a,
+        t.c - t.a,
+    )
+    if a[2] > b[2]:
+        return a
+    return b
 
 
 def get_triangle_center(t):

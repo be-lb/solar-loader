@@ -87,7 +87,9 @@ def get_geom(request, capakey):
 
     if len(row_list) == 1:
         geom = row_list[0][0]
-        return JsonResponse(shape_to_feature(geom), status=200)
+        return JsonResponse(
+            make_feature_collection([shape_to_feature(geom, capakey)]),
+            status=200)
     else:
         return JsonResponse(
             {
@@ -104,7 +106,7 @@ def get_3d(request, capakey):
     db = data_store
     rows = rows_with_geom(db, 'select_solid_intersect',
                           (capakey_in(capakey), ), 0)
-    features = [shape_to_feature(row[0]) for row in rows]
+    features = [shape_to_feature(row[0], idx) for idx, row in enumerate(rows)]
     collection = make_feature_collection(features)
     return JsonResponse(collection)
 

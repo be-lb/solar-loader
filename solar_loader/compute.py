@@ -14,7 +14,8 @@ from django.conf import settings
 import logging
 from .records import Triangle
 from .gis_geom import GISTriangle
-from .lingua import make_polyhedral_p, rows_with_geom, triangle_to_geojson, make_polyhedral
+from .lingua import (make_polyhedral_p, rows_with_geom, triangle_to_geojson,
+                     make_polyhedral, shape_to_feature)
 from .sunpos import get_sun_position, SunposNight
 from .geom import (tesselate, get_triangle_mat, transform_triangle,
                    unit_vector, transform_multipolygon,
@@ -344,17 +345,20 @@ def worker3(db, tmy, gis_triangles, with_shadows, day):
                         triangle_inclination, center[2], 1, month, tmy_index,
                         triangle_rdiso_flat, triangle_rdiso)
 
+                    radiation_diffuse = radiation_global - radiation_direct
+
                 if with_shadows:
                     direct_area = get_exposed_area(
                         gis_triangle, triangle_area, sunvec,
                         get_intersections_for_triangle(gis_triangle, tim, db))
                 else:
                     direct_area = triangle_area
-                total_global = triangle_area * radiation_global
+
+                total_diffuse = triangle_area * radiation_diffuse
                 total_direct = direct_area * radiation_direct
 
-                gis_triangle.radiations.append(total_direct + total_global)
-                hourly_radiations.append(total_direct + total_global)
+                gis_triangle.radiations.append(total_direct + total_diffuse)
+                hourly_radiations.append(total_direct + total_diffuse)
 
         daily_radiations.append(np.sum(hourly_radiations))
 
@@ -460,6 +464,7 @@ def worker2(db, tmy, t_roofs, intersections, tim):
                         gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
                         triangle_inclination, center[2], 1, month, tmy_index,
                         triangle_rdiso_flat, triangle_rdiso)
+                    radiation_diffuse = radiation_global - radiation_direct
 
                 try:
                     flat_mat = get_triangle_mat(sunvec)
@@ -502,15 +507,16 @@ def worker2(db, tmy, t_roofs, intersections, tim):
                                     logger.debug(str(s.is_valid))
                                     print(str(exc))
 
-                    total_global = triangle_area * radiation_global
+                    total_diffuse = triangle_area * radiation_diffuse
                     if intersection is None:
                         total_direct = triangle_area * radiation_direct
                     else:
                         direct_area = intersection.area * triangle_area / triangle_2d.area
                         total_direct = direct_area * radiation_direct
 
-                    hourly_radiations.append(total_direct + total_global)
-                    gis_triangle.radiations.append(total_direct + total_global)
+                    hourly_radiations.append(total_direct + total_diffuse)
+                    gis_triangle.radiations.append(total_direct +
+                                                   total_diffuse)
                     # end of shadow
 
         daily_radiations.append(np.sum(hourly_radiations))
@@ -610,10 +616,15 @@ def get_results_roof(db, tmy, sample_interval, roof_id, with_shadows=False):
     days = generate_sample_days(sample_interval)
     roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
     gis_triangles = []
+    print('roof({})'.format(roof_id))
     for t in tesselate(roof[1]):
         gis_t = GISTriangle(t)
         gis_t.init(db)
         gis_triangles.append(gis_t)
+        print('triangle <')
+        print('azimuth: {}'.format(gis_t.get_azimuth()))
+        print('tilt   : {}'.format(gis_t.get_inclination()))
+        print('>')
 
     radiations = []
 
@@ -629,17 +640,8 @@ def get_results_roof(db, tmy, sample_interval, roof_id, with_shadows=False):
         t.radiations = t.radiations * sample_interval
         features.append(triangle_to_geojson(t))
 
-    return {
-        "type": "FeatureCollection",
-        "crs": {
-            "type": "name",
-            "properties": {
-                "name": "urn:ogc:def:crs:EPSG::31370"
-            }
-        },
-        "features": features,
-        "radiations": radiations,
-    }
+    return shape_to_feature(
+        roof[1], roof_id, dict(productivity=np.sum(radiations), area=roof[2]))
 
 
 def make_t_roofs(db, ground_id, roofs):
