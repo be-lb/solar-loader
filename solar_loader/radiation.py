@@ -8,7 +8,8 @@ Authors: Daniel Klauser / Simon Albrecht, Meteotest AG, 3012 Bern, Switzerland
 """
 
 import numpy as np
-from math import pi, exp, sin, cos, radians, floor
+from math import pi, exp, sin, cos, radians, floor, degrees
+from pvlib.irradiance import aoi
 
 # constants for compute_gk
 epsilons = np.array([1.065, 1.23, 1.5, 1.95, 2.8, 4.5, 6.2, 10])
@@ -23,6 +24,34 @@ days_in_months_before = np.array(
 
 # albedo for Brussels:
 alb = 0.2
+
+
+def incidence(gh, dh, sza, saa, azimuth, inclination):
+
+    # convert azimuth from TMY (-180 to 180) to 0-360:
+    saa = saa + 180
+    pv_inc = aoi(inclination, azimuth, sza, saa)
+    # rate = (90.0 - pv_inc) / 90.0
+
+    # make sure that sun is above horizon
+    sza = min(89, sza)
+    # convert angels to [rad]
+    azimuth = radians(azimuth)
+    inclination = radians(inclination)
+    saa = radians(saa)
+    sza = radians(sza)
+
+    # calculate the cosine of theta_gen, the incident angle of the sun on the
+    # inclined plane, i.e. the angle between the direction of the sun then the
+    # normal vector of the plane
+    cos_theta_gen = max(0, (sin(sza) * sin(inclination) * cos(saa - azimuth) +
+                            cos(sza) * cos(inclination)))
+    bh = gh - dh
+    bk = bh * cos_theta_gen / cos(sza)
+    # bk = bh * rate
+
+    # return pv_inc, degrees(cos_theta_gen / cos(sza)), max(0, bk)
+    return pv_inc, bh, max(0, bk)
 
 
 def compute_gk(gh,
@@ -76,6 +105,9 @@ def compute_gk(gh,
 
     The calculation follows the mn-theory handbook section 6.7.2
     """
+
+    pv_inc = aoi(inclination, azimuth, sza, saa + 180)
+    rate = (90.0 - pv_inc) / 90.0
 
     # calculate isometric rd factors for flat plane (rdiso_flat) and inclined plane (rdiso):
 
@@ -138,6 +170,7 @@ def compute_gk(gh,
                (1 - f1_coeff) * rdiso_flat) / (1 - (1 - rdiso_flat) * alb))
 
     # direct irradiance on inclined plane
+    # bk = visibility * bh * rate  # cos_theta_gen / cos(sza)
     bk = visibility * bh * cos_theta_gen / cos(sza)
     # diffuse irradiance: circumsolar part
     dif_cs = visibility * dh * f1_coeff * cos_theta_gen / max(0.087, cos(sza))

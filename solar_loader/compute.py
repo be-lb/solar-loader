@@ -1,7 +1,7 @@
 import os
 from collections import namedtuple
 from functools import partial
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import numpy as np
 import math
 from collections import deque
@@ -12,6 +12,8 @@ from psycopg2.extensions import AsIs
 from shapely import geometry, wkb, wkt, affinity
 from django.conf import settings
 import logging
+from pytz import timezone
+
 from .records import Triangle
 from .gis_geom import GISTriangle
 from .lingua import (make_polyhedral_p, rows_with_geom, triangle_to_geojson,
@@ -23,6 +25,8 @@ from .geom import (tesselate, get_triangle_mat, transform_triangle,
 from .radiation import compute_gk
 
 logger = logging.getLogger(__name__)
+
+brussels_zone = timezone('Europe/Brussels')
 
 
 def fake_compute_gk(*args):
@@ -38,14 +42,16 @@ if 'FAKE_COMPUTE' in os.environ.keys():
     compute_gk = fake_compute_gk
 
 
-def time_range(start, interval, n):
-    return [start + (interval * i) for i in range(n)]
+def time_range(start, interval, n, tz=None):
+    if tz is None:
+        return [start + (interval * i) for i in range(n)]
+    return [start.astimezone(tz) + (interval * i) for i in range(n)]
 
 
 def get_days(start_month, start_day, interval, n):
     start = datetime(
-        datetime.now(timezone.utc).year, start_month, start_day, 0, 0, 0, 0,
-        timezone.utc)
+        datetime.now(brussels_zone).year, start_month, start_day, 0, 0, 0, 0,
+        brussels_zone)
     d = timedelta(hours=1)
     days = []
     for t in time_range(start, interval, n):
@@ -55,7 +61,7 @@ def get_days(start_month, start_day, interval, n):
 
 def generate_sample_days(sample_interval):
     sample_rate = 365 / sample_interval
-    days = get_days(3, 20, timedelta(days=sample_interval), int(sample_rate))
+    days = get_days(3, 21, timedelta(days=sample_interval), int(sample_rate))
     return days
 
 
@@ -616,15 +622,11 @@ def get_results_roof(db, tmy, sample_interval, roof_id, with_shadows=False):
     days = generate_sample_days(sample_interval)
     roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
     gis_triangles = []
-    print('roof({})'.format(roof_id))
+
     for t in tesselate(roof[1]):
         gis_t = GISTriangle(t)
         gis_t.init(db)
         gis_triangles.append(gis_t)
-        print('triangle <')
-        print('azimuth: {}'.format(gis_t.get_azimuth()))
-        print('tilt   : {}'.format(gis_t.get_inclination()))
-        print('>')
 
     radiations = []
 
