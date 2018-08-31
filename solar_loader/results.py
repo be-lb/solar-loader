@@ -83,55 +83,94 @@ def make_radiation_table(db, tmy):
         db.exec('insert_radiation', (float(tilt), float(azimuth), yearly_rad))
 
 
+def compute_parcel(db, tmy, sample_rate, ground_row):
+    capakey = ground_row[0]
+    for roof_row in rows_with_geom(db, 'select_roof_within', (capakey, ), 1):
+        # start_roof = perf_counter()
+        roof_id = roof_row[0]
+        roof_geom = roof_row[1]
+        roof_area = roof_row[2]
+        gis_triangles = list(get_triangles(db, roof_geom))
+        print('roof: {}'.format(roof_id))
+
+        azimuth = np.sum(
+            list(map(lambda t: t.get_azimuth() * t.area,
+                     gis_triangles))) / roof_area
+        tilt = np.sum(
+            list(map(lambda t: t.get_inclination() * t.area,
+                     gis_triangles))) / roof_area
+        radiations = []
+
+        with ProcessPoolExecutor() as executor:
+            fn = partial(compute_for_triangles, db, tmy, sample_rate,
+                         gis_triangles, True)
+            days = generate_sample_days(sample_rate)
+            for daily_radiation in executor.map(fn, days):
+                radiations.append(daily_radiation * float(sample_rate))
+
+        db.exec('insert_result', (
+            capakey,
+            roof_id,
+            roof_area,
+            tilt,
+            azimuth,
+            np.sum(radiations),
+        ))
+
+
 def make_results(db, tmy, sample_rate, limit, offset):
 
     start = perf_counter()
-    roof_times = []
-    for ground_row in db.rows('select_all_ground', {}, (
-            limit,
-            offset,
-    )):
-        capakey = ground_row[0]
-        print('capakey: {}'.format(capakey))
+    # roof_times = []
+    grounds = list(db.rows('select_all_ground', {}, (limit, offset)))
+    fn = partial(compute_parcel, db, tmy, sample_rate)
+    with ThreadPoolExecutor() as executor:
+        executor.map(fn, grounds)
 
-        for roof_row in rows_with_geom(db, 'select_roof_within', (capakey, ),
-                                       1):
-            start_roof = perf_counter()
-            roof_id = roof_row[0]
-            roof_geom = roof_row[1]
-            roof_area = roof_row[2]
-            gis_triangles = list(get_triangles(db, roof_geom))
-            print('roof: {}'.format(roof_id))
+    # for ground_row in db.rows('select_all_ground', {}, (
+    #         limit,
+    #         offset,
+    # )):
+    #     capakey = ground_row[0]
+    #     print('capakey: {}'.format(capakey))
 
-            azimuth = np.sum(
-                list(map(lambda t: t.get_azimuth() * t.area,
-                         gis_triangles))) / roof_area
-            tilt = np.sum(
-                list(
-                    map(lambda t: t.get_inclination() * t.area,
-                        gis_triangles))) / roof_area
-            radiations = []
+    #     for roof_row in rows_with_geom(db, 'select_roof_within', (capakey, ),
+    #                                    1):
+    #         start_roof = perf_counter()
+    #         roof_id = roof_row[0]
+    #         roof_geom = roof_row[1]
+    #         roof_area = roof_row[2]
+    #         gis_triangles = list(get_triangles(db, roof_geom))
+    #         print('roof: {}'.format(roof_id))
 
-            with ProcessPoolExecutor() as executor:
-                fn = partial(compute_for_triangles, db, tmy, sample_rate,
-                             gis_triangles, True)
-                days = generate_sample_days(sample_rate)
-                for daily_radiation in executor.map(fn, days):
-                    radiations.append(daily_radiation * float(sample_rate))
+    #         azimuth = np.sum(
+    #             list(map(lambda t: t.get_azimuth() * t.area,
+    #                      gis_triangles))) / roof_area
+    #         tilt = np.sum(
+    #             list(
+    #                 map(lambda t: t.get_inclination() * t.area,
+    #                     gis_triangles))) / roof_area
+    #         radiations = []
 
-            db.exec('insert_result', (
-                capakey,
-                roof_id,
-                roof_area,
-                tilt,
-                azimuth,
-                np.sum(radiations),
-            ))
+    #         with ProcessPoolExecutor() as executor:
+    #             fn = partial(compute_for_triangles, db, tmy, sample_rate,
+    #                          gis_triangles, True)
+    #             days = generate_sample_days(sample_rate)
+    #             for daily_radiation in executor.map(fn, days):
+    #                 radiations.append(daily_radiation * float(sample_rate))
 
-            roof_times.append(perf_counter() - start_roof)
+    #         db.exec('insert_result', (
+    #             capakey,
+    #             roof_id,
+    #             roof_area,
+    #             tilt,
+    #             azimuth,
+    #             np.sum(radiations),
+    #         ))
 
-    print('<{}> {} {}'.format(perf_counter() - start, limit,
-                              np.mean(roof_times)))
+    #         roof_times.append(perf_counter() - start_roof)
+
+    print('<{}>'.format(perf_counter() - start))
 
 
 BXL_CENTER = [149546, 169775, 20]
