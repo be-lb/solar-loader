@@ -73,6 +73,8 @@ class TimeCounter:
 
 
 def get_intersections_for_triangle(tim, db, sunvec, gis_triangle):
+    # print('get_intersections_for_triangle({}, {}, {}, {})'.format(
+    #     tim, db, sunvec, gis_triangle))
     sunvecunit = unit_vector(sunvec)
 
     # vector of length 0.1m towards sun position
@@ -154,6 +156,8 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
 
 def compute_for_triangles(db, tmy, sample_rate, gis_triangles, with_shadows,
                           day):
+
+    print('compute_for_triangles')
     alb = 0.2
     daily_radiations = []
 
@@ -169,16 +173,15 @@ def compute_for_triangles(db, tmy, sample_rate, gis_triangles, with_shadows,
         if hs < 1:
             continue
 
-        triangles = map(
-            lambda t: (get_coords_from_angles(t.center, hs, Az) - t.center, t,), gis_triangles)
+        triangles = list(map(
+            lambda t: (get_coords_from_angles(t.center, hs, Az) - t.center, t,), gis_triangles))
 
-        fn = partial(
-            get_intersections_for_triangle,
-            tim,
-            db,
-        )
+        def fn(st):
+            sunvec, triangle = st
+            return get_intersections_for_triangle(tim, db, sunvec, triangle)
 
         with ThreadPoolExecutor() as executor:
+            # print('compute_for_triangles')
             for (sunvec, triangle), row_intersect in zip(
                     triangles, executor.map(fn, triangles)):
                 # for triangle in gis_triangles:
