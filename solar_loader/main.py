@@ -8,9 +8,9 @@ django.setup()
 
 from .store import Data
 from .tmy import TMY
-from .compute import get_results, get_results_2
+from .compute import get_results_roof
 from .radiation_cache import mk_cache
-from .results import make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
+from .results import make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
 from django.conf import settings
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
@@ -27,16 +27,16 @@ def cli():
     pass
 
 
-@cli.command()
-@click.argument('capakey', type=str, required=True)
-@click.argument('sample_rate', type=int, default=30)
-def compute(capakey, sample_rate):
-    click.secho(
-        'Starting with a sample interval of {} days'.format(sample_rate))
-    if 'SOLAR2' in os.environ.keys():
-        get_results_2(data_store, tmy, sample_rate, capakey)
-    else:
-        get_results(data_store, tmy, sample_rate, capakey)
+# @cli.command()
+# @click.argument('capakey', type=str, required=True)
+# @click.argument('sample_rate', type=int, default=30)
+# def compute(capakey, sample_rate):
+#     click.secho(
+#         'Starting with a sample interval of {} days'.format(sample_rate))
+#     if 'SOLAR2' in os.environ.keys():
+#         get_results_2(data_store, tmy, sample_rate, capakey)
+#     else:
+#         get_results(data_store, tmy, sample_rate, capakey)
 
 
 @cli.command()
@@ -45,8 +45,11 @@ def make_cache():
 
 
 @cli.command()
-def rbc():
-    make_results(data_store, tmy, 30)
+@click.argument('sample_rate', type=int, default=30)
+@click.argument('limit', type=int, default=10)
+@click.argument('offset', type=int, default=0)
+def rbc(sample_rate, limit, offset):
+    make_results(data_store, tmy, sample_rate, limit, offset)
 
 
 @cli.command()
@@ -78,6 +81,11 @@ def day(filename):
 @cli.command()
 def sunpos():
     compare_sunpos(tmy)
+
+
+@cli.command()
+def radiations_table():
+    make_radiation_table(data_store, tmy)
 
 
 def main():

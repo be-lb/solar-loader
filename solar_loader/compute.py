@@ -1,45 +1,31 @@
-import os
-from collections import namedtuple
-from functools import partial
-from datetime import datetime, timedelta
-import numpy as np
-import math
-from collections import deque
-from time import perf_counter
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from functools import partial
-from psycopg2.extensions import AsIs
-from shapely import geometry, wkb, wkt, affinity
-from django.conf import settings
 import logging
-from pytz import timezone
+import math
+import os
+from collections import deque, namedtuple
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from datetime import datetime, timedelta
+from functools import partial
+from time import perf_counter
 
-from .records import Triangle
+import numpy as np
+from django.conf import settings
+from psycopg2.extensions import AsIs
+from pytz import timezone
+from shapely import affinity, geometry, wkb, wkt
+
+from .geom import (GeometryMissingDimension, get_flattening_mat,
+                   multipoly_bbox, tesselate, transform_multipolygon,
+                   transform_triangle, unit_vector, vec3_add)
 from .gis_geom import GISTriangle
-from .lingua import (make_polyhedral_p, rows_with_geom, triangle_to_geojson,
-                     make_polyhedral, shape_to_feature)
-from .sunpos import get_sun_position, SunposNight
-from .geom import (tesselate, get_triangle_mat, transform_triangle,
-                   unit_vector, transform_multipolygon,
-                   GeometryMissingDimension, vec3_add, multipoly_bbox)
+from .lingua import (make_polyhedral, make_polyhedral_p, rows_with_geom,
+                     shape_to_feature, triangle_to_geojson)
 from .radiation import compute_gk
+from .records import Triangle
+from .sunpos import get_coords_from_angles
 
 logger = logging.getLogger(__name__)
 
 brussels_zone = timezone('Europe/Brussels')
-
-
-def fake_compute_gk(*args):
-    """A noop implementation to measure time of computaion without actually computing radiation
-    """
-    return (
-        1.0,
-        1.0,
-    )
-
-
-if 'FAKE_COMPUTE' in os.environ.keys():
-    compute_gk = fake_compute_gk
 
 
 def time_range(start, interval, n, tz=None):
@@ -59,32 +45,17 @@ def get_days(start_month, start_day, interval, n):
     return days
 
 
-def generate_sample_days(sample_interval):
-    sample_rate = 365 / sample_interval
-    days = get_days(3, 21, timedelta(days=sample_interval), int(sample_rate))
+def generate_sample_days(sample_rate):
+    sample_rate = 365 / sample_rate
+    days = get_days(3, 21, timedelta(days=sample_rate), int(sample_rate))
     return days
 
 
-def generate_sample_times(sample_interval):
-    for day in generate_sample_days(sample_interval):
+def generate_sample_times(sample_rate):
+    for day in generate_sample_days(sample_rate):
         for tim in day:
             yield tim
 
-
-def same_triangle(t0, t1):
-    # TODO pas utilisé
-    e = 0.001
-    for v in (0, 1, 2):
-        for c in (0, 1, 2):
-            d = abs(t0[v][c] - t1[v][c])
-            if d > e:
-                return False
-    return True
-
-
-# Time recording
-# start = {}
-# compute_time = {}
 
 times_queue = deque()
 Timed = namedtuple('Timed', ['counter', 't'])
@@ -101,145 +72,7 @@ class TimeCounter:
         times_queue.append(Timed(self.name, perf_counter() - self.start))
 
 
-# def start_time_record(counter_name):
-#     global start
-#     start[counter_name] = perf_counter()
-
-# def end_time_record(counter_name):
-#     global compute_time
-#     if counter_name not in compute_time:
-#         compute_time[counter_name] = []
-#     compute_time[counter_name].append(perf_counter() - start[counter_name])
-
-# compute_gk_times = []
-use_wkb = True
-if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
-    use_wkb = False
-
-# def rows_with_geom_t(db, select, params, geom_index):
-#     if use_wkb:
-#         with TimeCounter('rows_with_geom_t'):
-#             for row in db.rows(select, {'conv_geom_operator': 'ST_AsBinary'},
-#                                params):
-#                 row = list(row)
-#                 with TimeCounter('wkb.loads'):
-#                     row[geom_index] = wkb.loads(row[geom_index], hex=False)
-#                 yield row
-#     else:
-#         with TimeCounter('rows_with_geom_t#{}'.format(select)):
-#             for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
-#                                params):
-#                 row = list(row)
-#                 with TimeCounter('wkt.loads'):
-#                     try:
-#                         row[geom_index] = wkt.loads(row[geom_index])
-#                     except Exception as ex:
-#                         logger.error('could not read "{}"\n{}'.format(
-#                             row[geom_index], ex))
-#                         continue
-#                 yield row
-
-
-def init_triangle(tim, gis_triangle):
-    center = gis_triangle.center
-    sunpos = get_sun_position(center, tim)
-
-    # if sunpos.is_daylight is False:
-    #     raise SunposNight()
-
-    triangle_azimuth = gis_triangle.get_azimuth()
-    triangle_inclination = gis_triangle.get_inclination()
-
-    triangle_area = gis_triangle.area
-    triangle_rdiso = gis_triangle.get_rdiso()
-    triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
-
-    return (center, sunpos, triangle_azimuth, triangle_inclination,
-            triangle_area, triangle_rdiso, triangle_rdiso_flat)
-
-
-class EmptyRoof(Exception):
-    pass
-
-
-def translate_poly(p, v, u):
-    vec = v * u
-    return affinity.translate(p, vec[0], vec[1], vec[2])
-
-
-def get_intersections_for_parcel(db, roofs, day):
-    """Maps times of day into collections of intersecting solids
-    """
-    poly_roofs = list(map(lambda r: r[0], roofs))
-    minx, miny, minz, maxx, maxy, maxz = multipoly_bbox(poly_roofs)
-    logger.info('{} {} {} {} {} {}'.format(minx, miny, minz, maxx, maxy, maxz))
-    center = np.array([
-        minx + ((maxx - minx) / 2.0),
-        miny + ((maxy - miny) / 2.0),
-        minz + ((maxz - minz) / 2.0),
-    ])
-
-    base = geometry.Polygon([
-        [minx, miny, minz],
-        [minx, maxy, minz],
-        [maxx, maxy, minz],
-        [maxx, miny, minz],
-        [minx, miny, minz],
-    ])
-    # logger.info('roofs:\n{}'.format(list(map(lambda r: r.to_wkt(), roofs))))
-    # logger.info('center:\n{}'.format(center))
-    # logger.info('base:\n{}'.format(base.to_wkt()))
-
-    results = []
-    for tim in day:
-        sunpos = get_sun_position(center, tim)
-        if sunpos.is_daylight is False:
-            results.append((tim, []))
-            continue
-
-        sunvec = sunpos.coords - center
-        sunvecunit = unit_vector(sunvec)
-        nearvec = sunvecunit * 0.1
-        farvec = sunvecunit * 200.0
-        poly_near = affinity.translate(base, nearvec[0], nearvec[1],
-                                       nearvec[2])
-        poly_far = affinity.translate(base, farvec[0], farvec[1], farvec[2])
-        polyhedr = make_polyhedral_p(poly_near, poly_far)
-
-        with TimeCounter('intersect'):
-            results.append((
-                tim,
-                list(
-                    rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ),
-                                   1)),
-            ))
-    return results
-
-
-class IntersectionsNotFound(Exception):
-    pass
-
-
-def find_intersections_t(intersections, tim):
-    for t, i in intersections:
-        if t == tim:
-            return i
-    raise IntersectionsNotFound(tim)
-
-
-def get_intersections(roof, gis_triangles, tim, db):
-    if len(gis_triangles) == 0:
-        raise EmptyRoof()
-
-    gis_triangle = gis_triangles[0]
-
-    return get_intersections_for_triangle(gis_triangle, tim, db)
-
-
-def get_intersections_for_triangle(gis_triangle, tim, db):
-
-    center, sunpos, _, _, _, _, _ = init_triangle(tim, gis_triangle)
-    sunvec = sunpos.coords - center
+def get_intersections_for_triangle(gis_triangle, tim, db, sunvec):
     sunvecunit = unit_vector(sunvec)
 
     # vector of length 0.1m towards sun position
@@ -276,7 +109,7 @@ def get_intersections_for_triangle(gis_triangle, tim, db):
 
 def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
     try:
-        flat_mat = get_triangle_mat(sunvec)
+        flat_mat = get_flattening_mat(sunvec)
     except GeometryMissingDimension:
         return triangle_area
 
@@ -290,8 +123,6 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
     ])
 
     intersection = None
-
-    # end_time_record('intersect')
 
     with TimeCounter('intersections'):
         for row in row_intersect:
@@ -310,8 +141,6 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
                         elif it.geom_type == 'Polygon':
                             intersection = intersection.union(it)
                     except Exception as exc:
-                        logger.debug(str(triangle_2d.is_valid))
-                        logger.debug(str(s.is_valid))
                         logger.debug(str(exc))
 
     if intersection is None:
@@ -323,207 +152,44 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
             intersection.area * triangle_area / triangle_2d.area)
 
 
-def worker3(db, tmy, gis_triangles, with_shadows, day):
+def compute_for_triangles(db, tmy, sample_rate, gis_triangles, with_shadows,
+                          day):
     alb = 0.2
     daily_radiations = []
 
     for tim in day:
-        gh = tmy.get_float('Global Horizontal Radiation', tim)
-        dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
+        gh = tmy.get_float_average('G_Gh', tim, sample_rate)
+        dh = tmy.get_float_average('G_Dh', tim, sample_rate)
+        hs = tmy.get_float('hs', tim)
+        Az = tmy.get_float('Az', tim)
         month = tim.month
         tmy_index = tmy.get_index(tim)
         hourly_radiations = []
-        for gis_triangle in gis_triangles:
-            with TimeCounter('triangle'):
-                center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
-                    tim, gis_triangle)
 
-                if sunpos.is_daylight is False:
-                    continue
-
-                # vector from center of triangle to sun position
-                sunvec = sunpos.coords - center
-
-                # radiation
-                with TimeCounter('radiations'):
-                    radiation_global, radiation_direct = compute_gk(
-                        gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
-                        triangle_inclination, center[2], 1, month, tmy_index,
-                        triangle_rdiso_flat, triangle_rdiso)
-
-                    radiation_diffuse = radiation_global - radiation_direct
-
-                if with_shadows:
-                    direct_area = get_exposed_area(
-                        gis_triangle, triangle_area, sunvec,
-                        get_intersections_for_triangle(gis_triangle, tim, db))
-                else:
-                    direct_area = triangle_area
-
-                total_diffuse = triangle_area * radiation_diffuse
-                total_direct = direct_area * radiation_direct
-
-                gis_triangle.radiations.append(total_direct + total_diffuse)
-                hourly_radiations.append(total_direct + total_diffuse)
-
-        daily_radiations.append(np.sum(hourly_radiations))
-
-    return np.sum(daily_radiations)
-
-
-def worker(db, tmy, t_roofs, day):
-    start_time = perf_counter()
-    logger.debug('Start {}-{}-{}'.format(day[0].year, day[0].month,
-                                         day[0].day))
-    daily_radiations = []
-
-    for tim in day:
-        # values for compute_ck
-        gh = tmy.get_float('Global Horizontal Radiation', tim)
-        dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
-        alb = 0.2
-        month = tim.month
-        tmy_index = tmy.get_index(tim)
-
-        hourly_radiations = []
-
-        for roof, gis_triangles in t_roofs:
-            sunpos = get_sun_position(gis_triangles[0].geom.a, tim)
-            if sunpos.is_daylight is False:
-                continue
-            try:
-                with TimeCounter('intersect.query'):
-                    row_intersect = list(
-                        get_intersections(roof, gis_triangles, tim, db))
-            except EmptyRoof:
+        for triangle in gis_triangles:
+            sunpos = get_coords_from_angles(triangle.center, hs, Az)
+            sunvec = sunpos - triangle.center
+            if hs < 1:
                 continue
 
-            for gis_triangle in gis_triangles:
-                center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
-                    tim, gis_triangle)
+            radiation_global, radiation_direct = compute_gk(
+                gh, dh, 90 - hs, Az, alb, triangle.get_azimuth(),
+                triangle.get_inclination(), triangle.center[2], 1, month,
+                tmy_index, triangle.get_rdiso_flat(), triangle.get_rdiso())
 
-                if sunpos.is_daylight is False:
-                    continue
+            radiation_diffuse = radiation_global - radiation_direct
 
-                # with TimeCounter('intersect.query'):
-                #     row_intersect = list(
-                #         get_intersections_for_triangle(gis_triangle, tim, db))
-                #     print('Intersects {}, {}'.format(tim, len(row_intersect)))
+            if with_shadows:
+                direct_area = get_exposed_area(
+                    triangle, triangle.area, sunvec,
+                    get_intersections_for_triangle(triangle, tim, db, sunvec))
+            else:
+                direct_area = triangle.area
 
-                # # vector from center of triangle to sun position
-                sunvec = sunpos.coords - center
-                # sunvecunit = unit_vector(sunvec)
+            total_diffuse = triangle.area * radiation_diffuse
+            total_direct = direct_area * radiation_direct
 
-                # radiation
-                with TimeCounter('radiations'):
-                    radiation_global, radiation_direct = compute_gk(
-                        gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
-                        triangle_inclination, center[2], 1, month, tmy_index,
-                        triangle_rdiso_flat, triangle_rdiso)
-                direct_area = get_exposed_area(gis_triangle, triangle_area,
-                                               sunvec, row_intersect)
-                total_global = triangle_area * radiation_global
-                total_direct = direct_area * radiation_direct
-
-                hourly_radiations.append(total_direct + total_global)
-                gis_triangle.radiations.append(total_direct + total_global)
-                # end of shadow
-
-        daily_radiations.append(np.sum(hourly_radiations))
-
-    logger.debug('End {}-{}-{} ({})\n{}'.format(
-        day[0].year, day[0].month, day[0].day,
-        perf_counter() - start_time, daily_radiations))
-    return np.sum(daily_radiations)
-
-
-def worker2(db, tmy, t_roofs, intersections, tim):
-    daily_radiations = []
-
-    with TimeCounter('worker2'):
-        # values for compute_ck
-        gh = tmy.get_float('Global Horizontal Radiation', tim)
-        dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
-        alb = 0.2
-        month = tim.month
-        tmy_index = tmy.get_index(tim)
-
-        hourly_radiations = []
-
-        for roof, gis_triangles in t_roofs:
-
-            for gis_triangle in gis_triangles:
-                with TimeCounter('init_triangle'):
-                    center, sunpos, triangle_azimuth, triangle_inclination, triangle_area, triangle_rdiso, triangle_rdiso_flat = init_triangle(
-                        tim, gis_triangle)
-
-                    if sunpos.is_daylight is False:
-                        continue
-
-                # # vector from center of triangle to sun position
-                sunvec = sunpos.coords - center
-                # sunvecunit = unit_vector(sunvec)
-
-                # radiation
-                with TimeCounter('radiations'):
-                    radiation_global, radiation_direct = compute_gk(
-                        gh, dh, sunpos.sza, sunpos.saa, alb, triangle_azimuth,
-                        triangle_inclination, center[2], 1, month, tmy_index,
-                        triangle_rdiso_flat, triangle_rdiso)
-                    radiation_diffuse = radiation_global - radiation_direct
-
-                try:
-                    flat_mat = get_triangle_mat(sunvec)
-                except GeometryMissingDimension:
-                    continue
-
-                flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
-
-                triangle_2d = geometry.Polygon([
-                    flat_triangle.a[:2],
-                    flat_triangle.b[:2],
-                    flat_triangle.c[:2],
-                    flat_triangle.a[:2],
-                ])
-
-                intersection = None
-
-                # end_time_record('intersect')
-
-                with TimeCounter('shadow'):
-                    for row in find_intersections_t(intersections, tim):
-                        # get the geometry
-                        solid = row[1]
-                        # apply same transformation than the flatten triangle
-                        with TimeCounter('flatten_trans_poly'):
-                            flatten_solid = transform_multipolygon(
-                                flat_mat, solid)
-                        # drops its z
-                        # solid_2d, zs = multipolygon_drop_z(flatten_solid)
-                        with TimeCounter('flatten_solid_loop'):
-                            for s in flatten_solid:
-                                try:
-                                    it = triangle_2d.intersection(s)
-                                    if intersection is None:
-                                        intersection = it
-                                    elif it.geom_type == 'Polygon':
-                                        intersection = intersection.union(it)
-                                except Exception as exc:
-                                    logger.debug(str(triangle_2d.is_valid))
-                                    logger.debug(str(s.is_valid))
-                                    print(str(exc))
-
-                    total_diffuse = triangle_area * radiation_diffuse
-                    if intersection is None:
-                        total_direct = triangle_area * radiation_direct
-                    else:
-                        direct_area = intersection.area * triangle_area / triangle_2d.area
-                        total_direct = direct_area * radiation_direct
-
-                    hourly_radiations.append(total_direct + total_diffuse)
-                    gis_triangle.radiations.append(total_direct +
-                                                   total_diffuse)
-                    # end of shadow
+            hourly_radiations.append(total_direct + total_diffuse)
 
         daily_radiations.append(np.sum(hourly_radiations))
 
@@ -545,170 +211,32 @@ def summarize_times():
             k, n, t, (t / float(n)) * 1000.0))
 
 
-def get_triangles(db, ground_id, roofs):
-
-    gis_triangles = []
-    for i, roof in enumerate(roofs):
-        triangles = tesselate(roof)
-        for t in triangles:
-            gis_t = GISTriangle(t, i, ground_id)
-            gis_t.init(db)
-            gis_triangles.append(gis_t)
-
-    return gis_triangles
-
-
-def get_results(db, tmy, sample_interval, ground_id):
-    times_queue.clear()
-    # db.exec('truncate_polyhedrals', ())
-
-    with TimeCounter('compute_triangles'):
-        # We start at equinox
-        days = generate_sample_days(sample_interval)
-
-        # we get roofs for this ground
-        roofs = [
-            row[1] for row in rows_with_geom(db, 'select_roof_within', (
-                ground_id, ), 1)
-        ]
-
-        t_roofs = make_t_roofs(db, ground_id, roofs)
-
-    radiations = []
-    # times = list(generate_sample_times(sample_interval))
-    # gis_triangles = []
-    # units = []
-    # for gt in get_triangles(db, ground_id, roofs):
-    #     for tim in times:
-    #         units.append((
-    #             gt,
-    #             tim,
-    #         ))
-
-    with TimeCounter('total'):
-        with ThreadPoolExecutor() as executor:
-            for daily_radiation in executor.map(
-                    partial(worker, db, tmy, t_roofs), days):
-                radiations.append(daily_radiation * float(sample_interval))
-
-    # total_area = np.sum([t.area for t in gis_triangles])
-    # logger.info('radiations on {} amounts to {} KWh on {} m2'.format(
-    #     ground_id, int(math.floor(np.sum(radiations) / 1000)), total_area))
-    # logger.info('Done {}'.format(perf_counter() - start))
-
-    summarize_times()
-
-    features = []
-    for _, gis_triangles in t_roofs:
-        for t in gis_triangles:
-            t.radiations = t.radiations * sample_interval
-            features.append(triangle_to_geojson(t))
-
-    return {
-        "type": "FeatureCollection",
-        "crs": {
-            "type": "name",
-            "properties": {
-                "name": "urn:ogc:def:crs:EPSG::31370"
-            }
-        },
-        "features": features,
-        "radiations": radiations,
-    }
-
-
-def get_results_roof(db, tmy, sample_interval, roof_id, with_shadows=False):
-    times_queue.clear()
-    days = generate_sample_days(sample_interval)
-    roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
-    gis_triangles = []
-
-    for t in tesselate(roof[1]):
+def get_triangles(db, roof_geom):
+    for t in tesselate(roof_geom):
         gis_t = GISTriangle(t)
         gis_t.init(db)
-        gis_triangles.append(gis_t)
+        yield gis_t
+
+
+def get_results_roof(db, tmy, sample_rate, roof_id, with_shadows=False):
+    times_queue.clear()
+    days = generate_sample_days(sample_rate)
+    roof = list(rows_with_geom(db, 'select_roof', (roof_id, ), 1))[0]
+    gis_triangles = list(get_triangles(db, roof[1]))
 
     radiations = []
 
     with TimeCounter('total'):
         with ThreadPoolExecutor() as executor:
             for daily_radiation in executor.map(
-                    partial(worker3, db, tmy, gis_triangles, with_shadows),
-                    days):
-                radiations.append(daily_radiation * float(sample_interval))
+                    partial(compute_for_triangles, db, tmy, sample_rate,
+                            gis_triangles, with_shadows), days):
+                radiations.append(daily_radiation * float(sample_rate))
 
     features = []
     for t in gis_triangles:
-        t.radiations = t.radiations * sample_interval
+        t.radiations = t.radiations * sample_rate
         features.append(triangle_to_geojson(t))
 
     return shape_to_feature(
         roof[1], roof_id, dict(productivity=np.sum(radiations), area=roof[2]))
-
-
-def make_t_roofs(db, ground_id, roofs):
-    t_roofs = []
-    for i, roof in enumerate(roofs):
-        gis_triangles = []
-        triangles = tesselate(roof)
-        for t in triangles:
-            gis_t = GISTriangle(t, i, ground_id)
-            gis_t.init(db)
-            gis_triangles.append(gis_t)
-        t_roofs.append((
-            roof,
-            gis_triangles,
-        ))
-    return t_roofs
-
-
-def get_results_2(db, tmy, sample_interval, ground_id):
-    times_queue.clear()
-
-    with TimeCounter('total'):
-        # We start at equinox
-        days = generate_sample_days(sample_interval)
-
-        # we get roofs for this ground
-        roofs = [
-            row[0] for row in rows_with_geom(db, 'select_roof_within', (
-                ground_id, ), 0)
-        ]
-
-        t_roofs = make_t_roofs(db, ground_id, roofs)
-        radiations = []
-
-        its = []
-
-        # with TimeCounter('exe_thread'):
-        with ThreadPoolExecutor() as executor:
-            # its = zip(
-            #     days,
-            #     executor.map(
-            #         partial(get_intersections_for_parcel, db, roofs),
-            #         days))
-
-            for day, intersections in zip(
-                    days,
-                    executor.map(
-                        partial(get_intersections_for_parcel, db, roofs),
-                        days)):
-                with ProcessPoolExecutor() as pexec:
-                    f = partial(worker2, db, tmy, t_roofs, intersections)
-                    for daily_radiation in pexec.map(f, day):
-                        radiations.append(
-                            daily_radiation * float(sample_interval))
-                    pexec.submit(summarize_times)
-                #     daily_radiation = worker2(db, tmy, t_roofs, day, intersections)
-                #     radiations.append(daily_radiation * float(sample_interval))
-                # for daily_radiation in worker2(db, tmy, t_roofs, day, intersections):
-                #     radiations.append(daily_radiation * float(sample_interval))
-
-        # with TimeCounter('exe_process'):
-        #     with ProcessPoolExecutor() as executor:
-        #         for day, intersections in its:
-        #             daily_radiation = worker2(db, tmy, t_roofs, day,
-        #                                       intersections)
-        #             radiations.append(daily_radiation * float(sample_interval))
-
-    summarize_times()

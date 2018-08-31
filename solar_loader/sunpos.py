@@ -22,49 +22,26 @@ def add(a, b):
     return a + b
 
 
-def get_sun_position(ref_point, tim):
-    """Get sun position for reference point and time at 1 degree's distance reprojected on l72
-
-    ref_point -- a 3d vector in Lambert72
-    tim       -- a datetime
-
-    returns a records.SunPosition
-    """
-
-    utc_time = tim.astimezone(utc)
+def get_coords_from_angles(ref_point, elev, azimut):
     px, py, pz = ref_point
-    lon, lat, z = transform(l72, wgs, px, py, pz)
-    azimut = solar.get_azimuth(lat, lon, utc_time, z)
-    altitude = solar.get_altitude(lat, lon, utc_time, z)
-    elev = altitude
-    aa = abs(azimut)
-    saa = aa if aa < 180 else aa - 360
-    # a = 180 - azimut
-    a = saa + 180
-    # print(abs(azimut), aa, a)
+    lon, lat, _ = transform(l72, wgs, px, py, pz)
+    a = azimut + 180
     if a > 270:
-        # o = a - 270
         # q = 4
         op_x = sub
         op_y = add
     elif a > 180:
-        # o = 90 - (a - 180)
         # q = 3
         op_x = sub
         op_y = sub
     elif a > 90:
-        # o = a - 90
         # q = 2
         op_x = add
         op_y = sub
     else:
-        # o = 90 - a
         # q = 1
         op_x = add
         op_y = add
-
-    if elev < 1:
-        return SunPosition([0, 0, 0], 0, 0, False, tim, 0, 0)
 
     r = np.deg2rad(a)
     s = np.sin(r)
@@ -79,7 +56,33 @@ def get_sun_position(ref_point, tim):
     sun_e = e * dist
     sun_pos = np.array([l72_coords[0], l72_coords[1], sun_e])
 
-    return SunPosition(sun_pos, a, elev, True, tim, 90 - altitude, saa)
+    return sun_pos
+
+
+def get_sun_position(ref_point, tim):
+    """Get sun position for reference point and time at 1 degree's distance reprojected on l72
+
+    ref_point -- a 3d vector in Lambert72
+    tim       -- a datetime
+
+    returns a records.SunPosition
+    """
+    utc_time = tim.astimezone(utc)
+    px, py, pz = ref_point
+    lon, lat, z = transform(l72, wgs, px, py, pz)
+
+    azimut = solar.get_azimuth(lat, lon, utc_time, z)
+    altitude = solar.get_altitude(lat, lon, utc_time, z)
+    elev = altitude
+    aa = abs(azimut)
+    saa = aa if aa < 180 else aa - 360
+
+    if elev < 1:
+        return SunPosition([0, 0, 0], 0, 0, False, tim, 0, 0)
+
+    return SunPosition(
+        get_coords_from_angles(ref_point, elev, saa), saa + 180, elev, True,
+        tim, 90 - altitude, saa)
 
 
 # .:     a = solar.get_azimuth(lat, lon, datetime(2018, 12, 15, i, 0,0,0, timezone.utc), 0)

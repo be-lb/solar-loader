@@ -162,7 +162,11 @@ def tesselate(shape):
     return [triangle_from_shape(s) for s in contained_triangles]
 
 
-def get_triangle_mat(vec):
+def get_flattening_mat(vec):
+    """
+    Given a coordinates vector of 3 dimensions, this function
+    will return a matrix 
+    """
     dist = np.linalg.norm(vec)
     if abs(dist) > 0:
         nt = vec / dist
@@ -180,7 +184,7 @@ def get_triangle_mat(vec):
 def get_triangle_flat_mat(t):
     """returns a flatening matrix for a triangle"""
 
-    return get_triangle_mat(get_triangle_normal(t))
+    return get_flattening_mat(get_triangle_normal(t))
 
 
 def unit_vector(vector):

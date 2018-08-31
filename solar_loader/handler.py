@@ -55,7 +55,7 @@ def get_radiation(request, roof):
     Compute radiation for a roof
     """
     results = get_results_roof(data_store, tmy, sample_rate, int(
-        roof, base=10))
+        roof, base=10), getattr(settings, 'SOLAR_WITH_SHADOWS', True))
     return JsonResponse(results)
 
 
