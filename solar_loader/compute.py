@@ -72,7 +72,7 @@ class TimeCounter:
         times_queue.append(Timed(self.name, perf_counter() - self.start))
 
 
-def get_intersections_for_triangle(gis_triangle, tim, db, sunvec):
+def get_intersections_for_triangle(tim, db, sunvec, gis_triangle):
     sunvecunit = unit_vector(sunvec)
 
     # vector of length 0.1m towards sun position
@@ -104,7 +104,7 @@ def get_intersections_for_triangle(gis_triangle, tim, db, sunvec):
     #                               farvec[1], farvec[2])
     # polyhedr = make_polyhedral_p(poly_near, poly_far)
 
-    return rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+    return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 
 
 def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
@@ -166,30 +166,48 @@ def compute_for_triangles(db, tmy, sample_rate, gis_triangles, with_shadows,
         tmy_index = tmy.get_index(tim)
         hourly_radiations = []
 
-        for triangle in gis_triangles:
-            sunpos = get_coords_from_angles(triangle.center, hs, Az)
-            sunvec = sunpos - triangle.center
-            if hs < 1:
-                continue
+        if hs < 1:
+            continue
 
-            radiation_global, radiation_direct = compute_gk(
-                gh, dh, 90 - hs, Az, alb, triangle.get_azimuth(),
-                triangle.get_inclination(), triangle.center[2], 1, month,
-                tmy_index, triangle.get_rdiso_flat(), triangle.get_rdiso())
+        triangles = map(
+            lambda t: (get_coords_from_angles(t.center, hs, Az) - t.center, t,), gis_triangles)
 
-            radiation_diffuse = radiation_global - radiation_direct
+        fn = partial(
+            get_intersections_for_triangle,
+            tim,
+            db,
+        )
 
-            if with_shadows:
-                direct_area = get_exposed_area(
-                    triangle, triangle.area, sunvec,
-                    get_intersections_for_triangle(triangle, tim, db, sunvec))
-            else:
-                direct_area = triangle.area
+        with ThreadPoolExecutor() as executor:
+            for (sunvec, triangle), row_intersect in zip(
+                    triangles, executor.map(fn, triangles)):
+                # for triangle in gis_triangles:
+                #     sunpos = get_coords_from_angles(triangle.center, hs, Az)
+                #     sunvec = sunpos - triangle.center
+                # if hs < 1:
+                #     continue
 
-            total_diffuse = triangle.area * radiation_diffuse
-            total_direct = direct_area * radiation_direct
+                radiation_global, radiation_direct = compute_gk(
+                    gh, dh, 90 - hs, Az, alb, triangle.get_azimuth(),
+                    triangle.get_inclination(), triangle.center[2], 1, month,
+                    tmy_index, triangle.get_rdiso_flat(), triangle.get_rdiso())
 
-            hourly_radiations.append(total_direct + total_diffuse)
+                radiation_diffuse = radiation_global - radiation_direct
+
+                if with_shadows:
+                    direct_area = get_exposed_area(
+                        triangle,
+                        triangle.area,
+                        sunvec,
+                        row_intersect,
+                    )
+                else:
+                    direct_area = triangle.area
+
+                total_diffuse = triangle.area * radiation_diffuse
+                total_direct = direct_area * radiation_direct
+
+                hourly_radiations.append(total_direct + total_diffuse)
 
         daily_radiations.append(np.sum(hourly_radiations))
 
