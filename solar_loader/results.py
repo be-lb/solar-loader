@@ -112,7 +112,7 @@ def make_results(db, tmy, sample_rate, limit, offset):
                         gis_triangles))) / roof_area
             radiations = []
 
-            with ThreadPoolExecutor() as executor:
+            with ProcessPoolExecutor() as executor:
                 fn = partial(compute_for_triangles, db, tmy, sample_rate,
                              gis_triangles, True)
                 days = generate_sample_days(sample_rate)
