@@ -109,11 +109,11 @@ def get_intersections_for_triangle(tim, db, sunvec, gis_triangle):
     return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 
 
-def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
+def get_exposed_area(gis_triangle, sunvec, row_intersect):
     try:
         flat_mat = get_flattening_mat(sunvec)
     except GeometryMissingDimension:
-        return triangle_area
+        return gis_triangle.area
 
     flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
 
@@ -146,12 +146,12 @@ def get_exposed_area(gis_triangle, triangle_area, sunvec, row_intersect):
                         logger.debug(str(exc))
 
     if intersection is None:
-        return triangle_area
+        return gis_triangle.area
     else:
         # print('R: {} {:.2f} {:.2f}'.format(
         #     len(row_intersect), intersection.area, triangle_2d.area))
-        return triangle_area - (
-            intersection.area * triangle_area / triangle_2d.area)
+        return gis_triangle.area - (
+            intersection.area * gis_triangle.area / triangle_2d.area)
 
 
 def compute_for_triangles(db, tmy, sample_rate, gis_triangles, with_shadows,

@@ -23,6 +23,7 @@ from .radiation import compute_gk, incidence
 from .radiation_meteotest import compute_gk as compute_gk_mt
 from .sunpos import get_sun_position, SunposNight
 from .tmy import make_key
+from .rdiso import get_rdiso5
 
 brussels_zone = timezone('Europe/Brussels')
 l72 = Proj(init='EPSG:31370')
@@ -53,7 +54,7 @@ def make_radiation_table(db, tmy):
         rdiso_flat = float(res_roof_rdiso_rows[0][0])
         rdiso = float(res_roof_rdiso_rows[0][1])
 
-        for tim in hours_for_year():
+        for tim in hours_for_year(2018):
             gh = tmy.get_float('G_Gh', tim)
             dh = tmy.get_float('G_Dh', tim)
             hs = tmy.get_float('hs', tim)
@@ -81,6 +82,75 @@ def make_radiation_table(db, tmy):
         # insert the resulting irradiance
         yearly_rad = res_row * float(sample_interval)
         db.exec('insert_radiation', (float(tilt), float(azimuth), yearly_rad))
+
+
+def open_multi(fps, m):
+    return list(map(lambda fp: open(fp, m), fps))
+
+
+def make_radiation_file(db, tmy, dest_path, year):
+    """
+    Make the distribution of radiations over a full range of tilted planes
+    throughout the year available as a csv file.
+    """
+
+    skip_az = 10
+
+    header = ['time']
+    for tilt, azimuth in it.product(
+            range(0, 90, 5), range(skip_az, 360 - skip_az, 5)):
+        header.append('{}*{}'.format(tilt, azimuth))
+
+    fps = [
+        '{}-{}-gk.csv'.format(dest_path, year),
+        '{}-{}-bk.csv'.format(dest_path, year),
+    ]
+
+    dest_file_gk, dest_file_bk = open_multi(fps, 'w')
+    writer_gk = csv.writer(dest_file_gk)
+    writer_bk = csv.writer(dest_file_bk)
+    writer_gk.writerow(header)
+    writer_bk.writerow(header)
+
+    for i, tim in enumerate(hours_for_year(year)):
+        print('{}\t{}'.format(i, tim))
+        res_row_gk = [tim]
+        res_row_bk = [tim]
+        rdiso_flat, rdiso = get_rdiso5(azimuth, tilt)
+
+        all_pairs = it.product(
+            range(0, 90, 5), range(skip_az, 360 - skip_az, 5))
+        for i, (tilt, azimuth) in enumerate(all_pairs):
+            gh = tmy.get_float('G_Gh', tim)
+            dh = tmy.get_float('G_Dh', tim)
+            hs = tmy.get_float('hs', tim)
+            Az = tmy.get_float('Az', tim)
+            month = tim.month
+            tmy_index = tmy.get_index(tim)
+
+            radiation_global, radiation_direct = compute_gk(
+                gh,
+                dh,
+                90.0 - hs,
+                Az,
+                0.2,
+                azimuth,
+                tilt,
+                28,  # Meteonorm 7 Output Preview for Bruxelles centre
+                1,
+                month,
+                tmy_index,
+                rdiso_flat,
+                rdiso)
+
+            res_row_gk.append(radiation_global)
+            res_row_bk.append(radiation_direct)
+
+        writer_gk.writerow(res_row_gk)
+        writer_bk.writerow(res_row_bk)
+        # insert the resulting irradiance
+        # yearly_rad = res_row * float(sample_interval)
+        # db.exec('insert_radiation', (float(tilt), float(azimuth), yearly_rad))
 
 
 def compute_parcel(db, tmy, sample_rate, ground_row):
@@ -211,8 +281,6 @@ def m_profile(db, tmy, sample_interval, filename):
                 dh = tmy.get_float_average('G_Dh', tim, sample_interval)
                 hs = tmy.get_float('hs', tim)
                 Az = tmy.get_float('Az', tim)
-                # gh = tmy.get_float('Global Horizontal Radiation', tim)
-                # dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
                 month = tim.month
                 tmy_index = tmy.get_index(tim)
 

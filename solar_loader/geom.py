@@ -85,9 +85,28 @@ def get_triangle_normal(t):
         t.b - t.a,
         t.c - t.a,
     )
+    # simple check for highest z as we cannot assume triangles are always in the same direction
     if a[2] > b[2]:
         return a
     return b
+
+
+def get_triangle_azimut(t):
+    norm = get_triangle_normal(t)
+
+    if norm[0] == 0 and norm[1] == 0:
+        return math.pi / 2  # ???
+    else:
+        return np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
+
+
+def get_triangle_inclination(t):
+    norm = get_triangle_normal(t)
+
+    if norm[0] == 0 and norm[1] == 0:
+        return 0
+    else:
+        return np.rad2deg(angle_between(np.array([norm[0], norm[1], 0]), norm))
 
 
 def get_triangle_center(t):

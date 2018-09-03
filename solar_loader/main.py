@@ -6,11 +6,12 @@ import json
 import django
 django.setup()
 
+from .celery import compute_radiation_for_parcel
 from .store import Data
 from .tmy import TMY
 from .compute import get_results_roof
 from .radiation_cache import mk_cache
-from .results import make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
+from .results import make_radiation_file, make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
 from django.conf import settings
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
@@ -86,6 +87,19 @@ def sunpos():
 @cli.command()
 def radiations_table():
     make_radiation_table(data_store, tmy)
+
+
+@cli.command()
+@click.argument('filename', type=str, required=True)
+@click.argument('year', type=int, required=True)
+def radiations_file(filename, year):
+    make_radiation_file(data_store, tmy, filename, year)
+
+
+@cli.command()
+@click.argument('capakey', type=str, required=True)
+def rad(capakey):
+    compute_radiation_for_parcel(capakey)
 
 
 def main():
