@@ -9,8 +9,8 @@ django.setup()
 from .celery import compute_radiation_for_parcel
 from .store import Data
 from .tmy import TMY
-from .compute import get_results_roof
-from .radiation_cache import mk_cache
+# from .compute import get_results_roof
+# from .radiation_cache import mk_cache
 from .results import make_radiation_file, make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
 from django.conf import settings
 
@@ -39,10 +39,9 @@ def cli():
 #     else:
 #         get_results(data_store, tmy, sample_rate, capakey)
 
-
-@cli.command()
-def make_cache():
-    mk_cache()
+# @cli.command()
+# def make_cache():
+#     mk_cache()
 
 
 @cli.command()

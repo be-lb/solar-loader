@@ -15,7 +15,6 @@ import pandas as pd
 import itertools as it
 
 from .time import hours_for_year
-from .compute import generate_sample_days, generate_sample_times, time_range, compute_for_triangles, get_triangles
 from .gis_geom import GISTriangle
 from .lingua import rows_with_geom
 from .geom import tesselate

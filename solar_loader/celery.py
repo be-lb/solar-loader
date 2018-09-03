@@ -3,6 +3,7 @@ from celery import Celery, chain, chord, group
 from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
+from time import perf_counter
 
 from .store import Data
 from .tmy import TMY
@@ -31,6 +32,7 @@ app = Celery('solar')
 app.conf.task_serializer = 'pickle'
 app.conf.result_serializer = 'pickle'
 app.conf.accept_content = ['pickle']
+app.conf.result_backend = 'redis://'
 
 
 def round5(f):
@@ -46,7 +48,7 @@ def tsum(numbers):
 
 
 @app.task(ignore_result=False)
-def compute_radiation(tim, triangle, exposed_area):
+def compute_radiation(exposed_area, tim, triangle):
     rdiso_flat, rdiso = get_rdiso5(
         round5(triangle.azimuth), round5(triangle.tilt))
     gh = tmy.get_float('G_Gh', tim)
@@ -78,7 +80,9 @@ def compute_radiation(tim, triangle, exposed_area):
 
 
 @app.task(ignore_result=False)
-def compute_exposed_area(triangle, sunvec, row_intersect):
+def compute_exposed_area(row_intersect, triangle, sunvec):
+    # print('compute_exposed_area({}, {}, {})'.format(triangle, sunvec,
+    #                                                 row_intersect))
     return get_exposed_area(triangle, sunvec, row_intersect)
 
 
@@ -131,6 +135,8 @@ def compute_radiation_for_roof(roof_geometry):
 
 def compute_radiation_for_parcel(capakey):
     for row in rows_with_geom(db, 'select_roof_within', (capakey, ), 1):
+        start = perf_counter()
         geom = row[1]
-        print('roof({}) => {}'.format(row[0],
-                                      compute_radiation_for_roof(geom)))
+        print('roof({}) => {} ({})'.format(row[0],
+                                           compute_radiation_for_roof(geom),
+                                           perf_counter() - start))
