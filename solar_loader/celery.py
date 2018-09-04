@@ -198,7 +198,12 @@ def compute_for_all():
     # for _ in map(process_roof_row, rows_with_geom(db, 'select_roof_all', (),
     #                                               1)):
     #     pass
+
+    dones = []
     with ProcessPoolExecutor() as executor:
         rows = rows_with_geom(db, 'select_roof_all', (), 1)
         for row, rad in zip(rows, executor.map(process_roof_row, rows)):
-            db.exec('insert_result', (row[0], rad))
+            dones.append((row[0], rad))
+
+    with ThreadPoolExecutor() as executor:
+        executor.map(lambda d: db.exec('insert_result', (row[0], rad)), dones)
