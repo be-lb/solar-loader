@@ -4,7 +4,7 @@ from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
 from time import perf_counter
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 from .store import Data
 from .tmy import TMY
@@ -188,10 +188,9 @@ def process_roof_row(row):
     roof_id = row[0]
     geom = row[1]
     rad = compute_radiation_for_roof_direc(geom)
-    db.exec('insert_result', (roof_id, rad))
     proc_t = perf_counter() - start_process
     print('{}, {:.4f}'.format(roof_id, proc_t))
-    return proc_t
+    return rad
 
 
 def compute_for_all():
@@ -199,6 +198,7 @@ def compute_for_all():
     # for _ in map(process_roof_row, rows_with_geom(db, 'select_roof_all', (),
     #                                               1)):
     #     pass
-    with ThreadPoolExecutor() as executor:
+    with ProcessPoolExecutor() as executor:
         rows = rows_with_geom(db, 'select_roof_all', (), 1)
-        executor.map(process_roof_row, rows)
+        for row, rad in zip(rows, executor.map(process_roof_row, rows)):
+            db.exec('insert_result', (row[0], rad))
