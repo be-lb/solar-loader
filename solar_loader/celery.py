@@ -148,6 +148,27 @@ def prepare_task(roof_geometry):
         for ti, tr in it.product(times, triangles))
 
 
+def compute_radiation_for_roof_direc(roof_geometry):
+    triangles = []
+    # times = generate_sample_times(SAMPLE_RATE)
+    for geom in tesselate(roof_geometry):
+        triangles.append(
+            GisTriangle(
+                geom,
+                get_triangle_azimut(geom),
+                get_triangle_inclination(geom),
+                get_triangle_center(geom),
+                get_triangle_area(geom),
+            ))
+
+    rads = map(
+        lambda t: rad5(round5(t.tilt), round5(t.azimuth)) * t.area,
+        triangles,
+    )
+
+    return sum(rads)
+
+
 def compute_radiation_for_roof(roof_geometry):
     t = prepare_task(roof_geometry)
     return t(tsum.s()).get()
@@ -166,8 +187,8 @@ def process_roof_row(row):
     start_process = perf_counter()
     roof_id = row[0]
     geom = row[1]
-    rad = compute_radiation_for_roof(geom)
-    query_store.delay(roof_id, rad)
+    rad = compute_radiation_for_roof_direc(geom)
+    db.exec('insert_result', (roof_id, rad))
     proc_t = perf_counter() - start_process
     print('{}, {:.4f}'.format(roof_id, proc_t))
     return proc_t
