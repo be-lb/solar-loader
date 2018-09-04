@@ -12,9 +12,13 @@
 
 -- ALTER TABLE "solar"."results" ADD PRIMARY KEY (id);
 
+-- CREATE TABLE "solar"."result" (
+--     id serial,
+--     roof_id character varying(50),
+--     irradiance decimal
+-- );
 
 
-
-INSERT INTO {results.table} 
-    (capakey, roof_id, area, tilt, azimut, irradiance)
-    VALUES (%s, %s, %s, %s, %s, %s);
+INSERT INTO "solar"."result" 
+    (roof_id, irradiance)
+    VALUES (%s, %s);

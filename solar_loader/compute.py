@@ -11,7 +11,7 @@ import numpy as np
 from django.conf import settings
 from psycopg2.extensions import AsIs
 from pytz import timezone
-from shapely import affinity, geometry, wkb, wkt
+from shapely import affinity, geometry, wkb, wkt, ops
 
 from .geom import (GeometryMissingDimension, get_flattening_mat,
                    multipoly_bbox, tesselate, transform_multipolygon,
@@ -41,7 +41,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
         flat_triangle.a[:2],
     ])
 
-    intersection = None
+    intersection = []
 
     for row in row_intersect:
         # get the geometry
@@ -53,17 +53,19 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
         for s in flatten_solid:
             try:
                 it = triangle_2d.intersection(s)
-                if intersection is None:
-                    intersection = it
-                elif it.geom_type == 'Polygon':
-                    intersection = intersection.union(it)
+                # if intersection is None:
+                #     intersection = it
+                # el
+                if it.geom_type == 'Polygon':
+                    intersection.append(it)  # intersection.union(it)
             except Exception as exc:
                 logger.debug(str(exc))
 
-    if intersection is None:
+    if len(intersection) == 0:
         return gis_triangle.area
     else:
         # print('R: {} {:.2f} {:.2f}'.format(
         #     len(row_intersect), intersection.area, triangle_2d.area))
+        int_area = ops.cascaded_union(intersection).area
         return gis_triangle.area - (
-            intersection.area * gis_triangle.area / triangle_2d.area)
+            int_area * gis_triangle.area / triangle_2d.area)

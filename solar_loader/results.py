@@ -37,7 +37,7 @@ def make_radiation_table(db, tmy):
 
     db.exec('create_radiations')
 
-    skip_az = 40
+    skip_az = 0
     sample_interval = 1
     all_pairs = it.product(range(0, 90, 5), range(skip_az, 360 - skip_az, 5))
 

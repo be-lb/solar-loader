@@ -6,7 +6,7 @@ import json
 import django
 django.setup()
 
-from .celery import compute_radiation_for_parcel
+from .celery import compute_for_all, compute_radiation_for_parcel
 from .store import Data
 from .tmy import TMY
 # from .compute import get_results_roof
@@ -99,6 +99,11 @@ def radiations_file(filename, year):
 @click.argument('capakey', type=str, required=True)
 def rad(capakey):
     compute_radiation_for_parcel(capakey)
+
+
+@cli.command()
+def all_rad():
+    compute_for_all()
 
 
 def main():

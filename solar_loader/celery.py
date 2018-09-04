@@ -1,9 +1,10 @@
 import itertools as it
-from celery import Celery, chain, chord, group
+from celery import Celery, chain, chord, group, Task
 from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
 from time import perf_counter
+from concurrent.futures import ThreadPoolExecutor
 
 from .store import Data
 from .tmy import TMY
@@ -23,11 +24,15 @@ from .lingua import make_polyhedral, rows_with_geom
 from .compute import get_exposed_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
+from .rad5 import rad5
 
 django.setup()
-SAMPLE_RATE = 14
+SAMPLE_RATE = 7 * 4 * 2
 db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
+
+with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', False)
+
 app = Celery('solar')
 app.conf.task_serializer = 'pickle'
 app.conf.result_serializer = 'pickle'
@@ -48,35 +53,42 @@ def tsum(numbers):
 
 
 @app.task(ignore_result=False)
+def query_store(roof_id, rad):
+    db.exec('insert_result', (roof_id, rad))
+
+
+@app.task(ignore_result=False)
 def compute_radiation(exposed_area, tim, triangle):
-    rdiso_flat, rdiso = get_rdiso5(
-        round5(triangle.azimuth), round5(triangle.tilt))
-    gh = tmy.get_float('G_Gh', tim)
-    dh = tmy.get_float('G_Dh', tim)
-    hs = tmy.get_float('hs', tim)
-    Az = tmy.get_float('Az', tim)
-    month = tim.month
-    tmy_index = tmy.get_index(tim)
+    return rad5(round5(triangle.tilt), round5(
+        triangle.azimuth)) * triangle.area
+    # rdiso_flat, rdiso = get_rdiso5(
+    #     round5(triangle.azimuth), round5(triangle.tilt))
+    # gh = tmy.get_float('G_Gh', tim)
+    # dh = tmy.get_float('G_Dh', tim)
+    # hs = tmy.get_float('hs', tim)
+    # Az = tmy.get_float('Az', tim)
+    # month = tim.month
+    # tmy_index = tmy.get_index(tim)
 
-    radiation_global, radiation_direct = compute_gk(
-        gh,
-        dh,
-        90.0 - hs,
-        Az,
-        0.2,
-        triangle.azimuth,
-        triangle.tilt,
-        28,  # Meteonorm 7 Output Preview for Bruxelles centre
-        1,
-        month,
-        tmy_index,
-        rdiso_flat,
-        rdiso)
+    # radiation_global, radiation_direct = compute_gk(
+    #     gh,
+    #     dh,
+    #     90.0 - hs,
+    #     Az,
+    #     0.2,
+    #     triangle.azimuth,
+    #     triangle.tilt,
+    #     28,  # Meteonorm 7 Output Preview for Bruxelles centre
+    #     1,
+    #     month,
+    #     tmy_index,
+    #     rdiso_flat,
+    #     rdiso)
 
-    diffuse = triangle.area * (radiation_global - radiation_global)
-    direct = exposed_area * radiation_direct
+    # diffuse = triangle.area * (radiation_global - radiation_global)
+    # direct = exposed_area * radiation_direct
 
-    return diffuse + direct
+    # return diffuse + direct
 
 
 @app.task(ignore_result=False)
@@ -99,7 +111,7 @@ def query_intersections(triangle, sunvec):
     return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 
 
-def make_chain(ti, tr):
+def make_chain_with_shadows(ti, tr):
     sunpos = get_sun_position(tr.center, ti)
     sunvec = unit_vector(
         get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth) -
@@ -107,6 +119,10 @@ def make_chain(ti, tr):
     return (query_intersections.s(tr.geom, sunvec)
             | compute_exposed_area.s(tr, sunvec)
             | compute_radiation.s(ti, tr))
+
+
+def make_chain_without_shadows(ti, tr):
+    return compute_radiation.s(tr.area, ti, tr)
 
 
 def prepare_task(roof_geometry):
@@ -122,10 +138,14 @@ def prepare_task(roof_geometry):
                 get_triangle_area(geom),
             ))
 
-    batch = chord(
-        make_chain(ti, tr) for ti, tr in it.product(times, triangles))
+    if with_shadows:
+        return chord(
+            make_chain_with_shadows(ti, tr)
+            for ti, tr in it.product(times, triangles))
 
-    return batch
+    return chord(
+        make_chain_without_shadows(ti, tr)
+        for ti, tr in it.product(times, triangles))
 
 
 def compute_radiation_for_roof(roof_geometry):
@@ -140,3 +160,24 @@ def compute_radiation_for_parcel(capakey):
         print('roof({}) => {} ({})'.format(row[0],
                                            compute_radiation_for_roof(geom),
                                            perf_counter() - start))
+
+
+def process_roof_row(row):
+    start_process = perf_counter()
+    roof_id = row[0]
+    geom = row[1]
+    rad = compute_radiation_for_roof(geom)
+    query_store.delay(roof_id, rad)
+    proc_t = perf_counter() - start_process
+    print('{}, {:.4f}'.format(roof_id, proc_t))
+    return proc_t
+
+
+def compute_for_all():
+    db.exec('create_result')
+    # for _ in map(process_roof_row, rows_with_geom(db, 'select_roof_all', (),
+    #                                               1)):
+    #     pass
+    with ThreadPoolExecutor() as executor:
+        rows = rows_with_geom(db, 'select_roof_all', (), 1)
+        executor.map(process_roof_row, rows)
