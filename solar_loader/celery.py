@@ -184,26 +184,27 @@ def compute_radiation_for_parcel(capakey):
 
 
 def process_roof_row(row):
-    start_process = perf_counter()
-    roof_id = row[0]
     geom = row[1]
     rad = compute_radiation_for_roof_direc(geom)
-    proc_t = perf_counter() - start_process
-    print('{}, {:.4f}'.format(roof_id, proc_t))
-    return rad
+    roof_id = row[0]
+    return roof_id, rad
+
+
+def insert_result(r):
+    db.exec('insert_result', r)
+    return r[0]
 
 
 def compute_for_all():
     db.exec('create_result')
-    # for _ in map(process_roof_row, rows_with_geom(db, 'select_roof_all', (),
-    #                                               1)):
-    #     pass
 
     dones = []
     with ProcessPoolExecutor() as executor:
         rows = rows_with_geom(db, 'select_roof_all', (), 1)
-        for row, rad in zip(rows, executor.map(process_roof_row, rows)):
-            dones.append((row[0], rad))
+        for roof_id, rad in executor.map(process_roof_row, rows, chunksize=4):
+            print('{}'.format(len(dones)))
+            dones.append((roof_id, rad))
 
     with ThreadPoolExecutor() as executor:
-        executor.map(lambda d: db.exec('insert_result', (row[0], rad)), dones)
+        for i in executor.map(insert_result, dones):
+            print('inserted {}'.format(i))
