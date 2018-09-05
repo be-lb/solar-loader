@@ -36,9 +36,6 @@ def cli():
 #     else:
 #         get_results(data_store, tmy, sample_rate, capakey)
 
-# @cli.command()
-# def make_cache():
-#     mk_cache()
 
 
 @cli.command()
