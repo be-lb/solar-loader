@@ -1,6 +1,6 @@
-SELECT 
-    __conv_geom_operator__(st_force2d({ground.geometry})) 
-FROM 
+SELECT
+    st_astext(st_force2d({ground.geometry})) 
+FROM
     {ground.table}
-WHERE 
+WHERE
     {ground.capakey} = %s;

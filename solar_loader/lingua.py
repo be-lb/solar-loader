@@ -1,39 +1,22 @@
 import math
 import logging
 import numpy as np
-from shapely import geometry, wkb, wkt, ops
-from django.conf import settings
+from shapely import geometry, wkt
 from .geom import tesselate, angle_between
 
 logger = logging.getLogger(__name__)
 
-# to say if we use wkb or wkt to communicate with the db
-use_wkb = True
-if hasattr(settings, 'SOLAR_WKT_FROM_DB') and settings.SOLAR_WKT_FROM_DB:
-    use_wkb = False
-
 
 def rows_with_geom(db, select, params, geom_index):
-    if use_wkb:
-        for row in db.rows(select, {'conv_geom_operator': ''}, params):
-            row = list(row)
-            try:
-                row[geom_index] = wkb.loads(row[geom_index], hex=True)
-            except Exception as exc:
-                print('GEOM: {}'.format(row[geom_index]))
-                raise exc
-            yield row
-    else:
-        for row in db.rows(select, {'conv_geom_operator': 'st_astext'},
-                           params):
-            row = list(row)
-            try:
-                row[geom_index] = wkt.loads(row[geom_index])
-            except Exception as ex:
-                logger.error('could not read "{}"\n{}'.format(
-                    row[geom_index], ex))
-                continue
-            yield row
+    for row in db.rows(select, {}, params):
+        row = list(row)
+        try:
+            row[geom_index] = wkt.loads(row[geom_index])
+        except Exception as ex:
+            logger.error('could not read "{}"\n{}'.format(
+                row[geom_index], ex))
+            continue
+        yield row
 
 
 def coord_to_wkt(c):

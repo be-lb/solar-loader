@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.db import connections
-from .compute import generate_sample_days
+from .time import generate_sample_days
 from .radiation import roof_rdiso, compute_gk
 from .tmy import TMY
 

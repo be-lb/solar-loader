@@ -1,11 +1,11 @@
-SELECT 
-    r.id, __conv_geom_operator__(r.{roof.geometry}), st_area(r.{roof.geometry})
+SELECT
+    r.id, st_astext(r.{roof.geometry}), st_area(r.{roof.geometry}), res.{results.irradiance}
 FROM
     {roof.table} r
-    CROSS JOIN (
+    JOIN (
         SELECT st_force2d({ground.geometry}) as geom
         FROM {ground.table}
         WHERE {ground.capakey} = %s
-        LIMIT 1
         ) g
-WHERE  st_within(r.{roof.centroid}, g.geom);
+    ON st_within(r.{roof.centroid}, g.geom)
+    JOIN {results.table} res ON res.{results.roof_id} = r.id

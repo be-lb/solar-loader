@@ -1,7 +1,5 @@
-import os
 import click
 import attr
-import json
 
 import django
 django.setup()
@@ -9,13 +7,12 @@ django.setup()
 from .celery import compute_for_all, compute_radiation_for_parcel
 from .store import Data
 from .tmy import TMY
-# from .compute import get_results_roof
-# from .radiation_cache import mk_cache
 from .results import make_radiation_file, make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
 from django.conf import settings
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
+
 
 
 @attr.s

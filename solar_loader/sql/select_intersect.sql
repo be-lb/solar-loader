@@ -1,7 +1,7 @@
 SELECT
     -- TODO: templatize gid
-    gid, __conv_geom_operator__({solid.geometry})
-FROM 
+    gid, st_astext({solid.geometry})
+FROM
     {solid.table}
-WHERE 
+WHERE
     ST_3DIntersects(%s, {solid.geometry});

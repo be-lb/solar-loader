@@ -15,13 +15,11 @@
 #
 
 from django.conf.urls import url
-from .handler import get_roofs,get_radiation, get_settings, get_geom, get_3d,\
-    get_spatial_ref_key, make_radition_cache
+from .handler import get_roofs, get_settings, get_geom, get_3d,\
+    get_spatial_ref_key
+
 
 urlpatterns = [
-    url(r'^solar/make/radiation/cache/$',
-        make_radition_cache,
-        name='geodata.solar.make_radition_cache'),
     url(r'^solar/settings/$', get_settings, name='geodata.solar.settings'),
     url(r'^solar/geom/for/(?P<capakey>.+)/$',
         get_geom,
@@ -35,7 +33,4 @@ urlpatterns = [
     url(r'^solar/roofs/(?P<capakey>.+)/$',
         get_roofs,
         name='geodata.solar.roofs'),
-    url(r'^solar/radiations/(?P<roof>.+)/$',
-        get_radiation,
-        name='geodata.solar.radiation'),
 ]
