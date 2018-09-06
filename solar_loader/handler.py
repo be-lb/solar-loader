@@ -40,16 +40,21 @@ def capakey_out(capakey):
 
 def get_roofs(request, capakey):
     """
-    Get roofs (id, geomtry and irradiance) as a geojson FeatureCollection
+    Get roofs (id, geomtry, area and irradiance) as a geojson FeatureCollection
     for a given capakey.
     """
     db = data_store
-    roof_rows = rows_with_geom(db, 'select_roof_within',
-                               (capakey_in(capakey), ), 1)
+    roof_rows = list(
+        rows_with_geom(db, 'select_roof_within', (capakey_in(capakey), ), 1))
+
+    for i, cell in enumerate(roof_rows[0]):
+        print('cell[{}] :: {}'.format(i, type(cell)))
 
     features = [
-        shape_to_feature(roof_row[1], roof_row[0], {'irradiance': roof_row[3]})
-        for roof_row in roof_rows
+        shape_to_feature(roof_row[1], roof_row[0], {
+            'irradiance': float(roof_row[3]),
+            'area': roof_row[2]
+        }) for roof_row in roof_rows
     ]
     collection = make_feature_collection(features)
     return JsonResponse(collection)
@@ -101,8 +106,8 @@ def get_3d(request, capakey):
     """
     roofs = []
     for row in rows_with_geom(data_store, 'select_roof_within',
-                              (capakey_in(capakey), ), 2):
-        roofs.append(row[2])
+                              (capakey_in(capakey), ), 4):
+        roofs.append(row[4])
 
     solids = []
     for roof_centroid in roofs:

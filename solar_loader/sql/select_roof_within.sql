@@ -1,10 +1,9 @@
-<<<<<<< HEAD
 SELECT
-    r.id, st_astext(r.{roof.geometry}), st_area(r.{roof.geometry}), res.{results.irradiance}
-=======
-SELECT 
-    r.gid, __conv_geom_operator__(r.{roof.geometry}), __conv_geom_operator__(r.{roof.centroid})
->>>>>>> master
+    r.id, 
+    st_astext(r.{roof.geometry}), 
+    st_area(r.{roof.geometry}), 
+    res.{results.irradiance}, 
+    st_astext(r.{roof.centroid}) 
 FROM
     {roof.table} r
     JOIN (

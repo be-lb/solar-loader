@@ -1,5 +1,5 @@
 SELECT
-    gid, __conv_geom_operator__({solid.geometry})
+    gid, st_astext({solid.geometry})
 FROM 
     {solid.table}
 WHERE 
