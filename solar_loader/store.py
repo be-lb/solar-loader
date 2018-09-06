@@ -37,13 +37,15 @@ def format_q(q, args):
         t = type(arg)
 
         if t == str:
-            arg = '{}'.format(arg)
+            arg = "'{}'".format(arg)
         elif t == bytes:
-            arg = '{}'.format(arg)
+            arg = "'{}'".format(arg)
         elif t == AsIs:
             arg = arg.getquoted().decode()
 
-        return format_q(q.replace('%s', str(arg)), args[1:])
+        nq = q.replace('%s', str(arg), 1)
+        # print('NQ({})'.format(nq))
+        return format_q(nq, args[1:])
         # try:
         # except Exception as ex:
         #     print('format_q: {} {}'.format(q, arg))
@@ -77,8 +79,8 @@ class Data:
                 start_time = perf_counter()
                 for k in safe_params:
                     q = q.replace('__{}__'.format(k), safe_params[k])
-                # print('+++++ SQL({}) ++++++++++++++++++++'.format(query_name))
-                # print(format_q(q, args))
+                print('+++++ SQL({}) ++++++++++++++++++++'.format(query_name))
+                print(format_q(q, args))
                 cur.execute(q, args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:
