@@ -52,7 +52,7 @@ def get_roofs(request, capakey):
 
     features = [
         shape_to_feature(roof_row[1], roof_row[0], {
-            'irradiance': float(roof_row[3]),
+            'irradiance': float(roof_row[3]) / roof_row[2],
             'area': roof_row[2]
         }) for roof_row in roof_rows
     ]
