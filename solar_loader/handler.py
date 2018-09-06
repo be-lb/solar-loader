@@ -18,6 +18,9 @@ from django.http import JsonResponse, HttpResponse, Http404, HttpResponseBadRequ
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
 from django.views.decorators.cache import cache_page
+from psycopg2.extensions import AsIs
+from shapely import geometry
+from functools import reduce
 
 from .store import Data
 from .tmy import TMY
@@ -103,10 +106,51 @@ def get_3d(request, capakey):
     Get the 3D-geojson that is associated to a parcel with capakey as
     cadastral number
     """
-    db = data_store
-    rows = rows_with_geom(db, 'select_solid_intersect',
-                          (capakey_in(capakey), ), 0)
-    features = [shape_to_feature(row[0], idx) for idx, row in enumerate(rows)]
+    roofs = []
+    for row in rows_with_geom(data_store, 'select_roof_within',
+                              (capakey_in(capakey), ), 2):
+        roofs.append(row[2])
+
+    solids = []
+    for roof_centroid in roofs:
+        x, y = roof_centroid.coords[0]
+        axis = 'ST_GeomFromText(\'LINESTRING Z ({x} {y} 0,{x} {y} 1000)\', 31370)'.format(
+            x=x, y=y)
+
+        # print(axis)
+
+        for row in rows_with_geom(data_store, 'select_intersect',
+                                  (AsIs(axis), ), 1):
+            solids.append(row[1])
+
+    minx, miny, maxx, maxy = reduce(
+        lambda acc, b: (min(acc[0], b[0]), min(acc[1], b[1]), max(acc[2], b[2]), max(acc[3], b[3]),),
+        map(lambda s: s.bounds, solids))
+
+    sz = max(maxx - minx, maxy - miny)
+
+    features = [
+        shape_to_feature(s, idx, dict(is_exact=True))
+        for idx, s in enumerate(solids)
+    ]
+
+    # box = 'Box3D(ST_GeomFromText(\'LINESTRING Z ({x0} {y0} 0,{x1} {y1} 1000)\', 31370))'.format(
+    #     x0=minx - sz, y0=miny - sz, x1=maxx + sz, y1=maxy + sz)
+
+    center = 'ST_GeomFromText(\'POINT Z ({x} {y} 50)\', 31370)'.format(
+        x=minx + (maxx - minx), y=miny + (maxy - miny))
+
+    # for row in rows_with_geom(data_store, 'select_intersect', (AsIs(box), ),
+    #                           1):
+    for row in rows_with_geom(data_store, 'select_within', (
+            AsIs(center),
+            sz * 3,
+    ), 1):
+        features.append(shape_to_feature(row[1], row[0], dict(is_exact=False)))
+
+    # db = data_store
+    # rows = rows_with_geom(db, 'select_solid_intersect',
+    #                       (capakey_in(capakey), ), 0)
     collection = make_feature_collection(features)
     return JsonResponse(collection)
 
