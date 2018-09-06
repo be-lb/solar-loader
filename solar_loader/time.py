@@ -1,8 +1,44 @@
 from datetime import datetime, timedelta
 from django.conf import settings
 from pytz import timezone, utc
+from time import perf_counter
+from collections import deque, namedtuple
+import numpy as np
 
 brussels_zone = timezone('Europe/Brussels')
+
+times_queue = deque()
+Timed = namedtuple('Timed', ['counter', 't'])
+
+
+class TimeCounter:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        self.start = perf_counter()
+
+    def __exit__(self, *args):
+        times_queue.append(Timed(self.name, perf_counter() - self.start))
+
+
+def start_counter():
+    times_queue.clear()
+
+
+def summarize_times():
+    keys = []
+    for ct in times_queue:
+        if ct.counter not in keys:
+            keys.append(ct.counter)
+
+    for k in sorted(keys):
+        values = list(
+            map(lambda x: x.t, filter(lambda x: x.counter == k, times_queue)))
+        n = len(values)
+        t = np.sum(values)
+        print('Time spent in {}: n = {}, t = {:.2f} s, t/n = {:.2f} ms'.format(
+            k, n, t, (t / float(n)) * 1000.0))
 
 
 def time_range(start, interval, n):

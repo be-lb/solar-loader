@@ -7,12 +7,15 @@ django.setup()
 from .celery import compute_for_all, compute_radiation_for_parcel
 from .store import Data
 from .tmy import TMY
-from .results import make_radiation_file, make_radiation_table, make_results, m_profile, m_incidence, m_profile_day, m_profile_pvlib, compare_sunpos
+from .results import (make_radiation_file, make_radiation_table, make_results,
+                      m_profile, m_incidence, m_profile_day, m_profile_pvlib,
+                      compare_sunpos)
+from .time import start_counter, summarize_times
+from .compute import get_results_roof
 from django.conf import settings
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
-
 
 
 @attr.s
@@ -25,17 +28,18 @@ def cli():
     pass
 
 
-# @cli.command()
-# @click.argument('capakey', type=str, required=True)
-# @click.argument('sample_rate', type=int, default=30)
-# def compute(capakey, sample_rate):
-#     click.secho(
-#         'Starting with a sample interval of {} days'.format(sample_rate))
-#     if 'SOLAR2' in os.environ.keys():
-#         get_results_2(data_store, tmy, sample_rate, capakey)
-#     else:
-#         get_results(data_store, tmy, sample_rate, capakey)
-
+@cli.command()
+@click.option('--shadows', is_flag=True)
+@click.argument('roof_id', type=str, required=True)
+@click.argument('sample_rate', type=int, default=30)
+def compute(shadows, roof_id, sample_rate):
+    start_counter()
+    r = get_results_roof(data_store, tmy, sample_rate, roof_id, shadows)
+    summarize_times()
+    props = r['properties']
+    i = props['irradiance']
+    a = props['area']
+    click.secho('irradiance = {} w, area = {} m2'.format(i, a), fg='blue')
 
 
 @cli.command()
