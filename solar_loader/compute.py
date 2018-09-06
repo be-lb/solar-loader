@@ -55,7 +55,7 @@ def get_intersections_for_triangle(gis_triangle, sunvec, db):
                             gis_triangle.geom.c + farvec)
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
-    return rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+    return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 
 
 def get_exposed_area(gis_triangle, sunvec, row_intersect):
@@ -135,10 +135,11 @@ def worker(db, tmy, sample_rate, gis_triangles, with_shadows, day):
                     radiation_diffuse = radiation_global - radiation_direct
 
                 if with_shadows:
-                    direct_area = get_exposed_area(
-                        gis_triangle, sunvec,
-                        get_intersections_for_triangle(gis_triangle, sunvec,
-                                                       db))
+                    with TimeCounter('shadows'):
+                        direct_area = get_exposed_area(
+                            gis_triangle, sunvec,
+                            get_intersections_for_triangle(
+                                gis_triangle, sunvec, db))
                 else:
                     direct_area = triangle_area
 
