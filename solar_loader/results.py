@@ -15,7 +15,6 @@ import pandas as pd
 import itertools as it
 
 from .time import hours_for_year
-from .gis_geom import GISTriangle
 from .lingua import rows_with_geom
 from .geom import tesselate
 from .radiation import compute_gk, incidence

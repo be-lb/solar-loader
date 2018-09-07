@@ -1304,3 +1304,18 @@ def rad5(tilt, az):
     if tilt == 90:
         return data[(85, az)]
     return data[(tilt, az)]
+
+
+def get_max():
+    rad_max = 0
+    for rad in data.values():
+        if rad > rad_max:
+            rad_max = rad
+    return rad_max
+
+
+rad_max = get_max()
+
+
+if __name__ == '__main__':
+    print('Radiation max : {}'.format(rad_max))

@@ -6,7 +6,6 @@ from munch import munchify
 import logging
 
 from django.db import connections
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 

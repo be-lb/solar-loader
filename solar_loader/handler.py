@@ -15,15 +15,16 @@
 
 from django.http import JsonResponse, Http404, HttpResponseBadRequest
 from django.conf import settings
-from django.contrib.gis.geos import GEOSGeometry, GeometryCollection
-from django.views.decorators.cache import cache_page
 from psycopg2.extensions import AsIs
-from shapely import geometry
 from functools import reduce
 
 from .store import Data
 from .tmy import TMY
 from .lingua import make_feature_collection, rows_with_geom, shape_to_feature
+from .roof import Roof
+
+import logging
+logger = logging.getLogger(__name__)
 
 data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
@@ -50,12 +51,23 @@ def get_roofs(request, capakey):
     for i, cell in enumerate(roof_rows[0]):
         print('cell[{}] :: {}'.format(i, type(cell)))
 
+    roofs = []
+    for roof_row in roof_rows:
+        roof_id = roof_row[0]
+        wkt_geom = roof_row[1]
+        area = roof_row[2]
+        irradiance = float(roof_row[3]) / roof_row[2]
+
+        roofs.append(Roof(roof_id, wkt_geom, area, irradiance))
+
     features = [
-        shape_to_feature(roof_row[1], roof_row[0], {
-            'irradiance': float(roof_row[3]) / roof_row[2],
-            'area': roof_row[2]
-        }) for roof_row in roof_rows
-    ]
+        shape_to_feature(roof.wkt_geom, roof.id, {
+            'irradiance': roof.irradiance,
+            'area': roof.area,
+            'tilt': None,
+            'productivity': roof.productivity
+        }) for roof in roofs]
+
     collection = make_feature_collection(features)
     return JsonResponse(collection)
 
