@@ -1,6 +1,7 @@
 from .rad5 import rad_max
 PRODUCTIVITY_MAX = 940
 
+
 class Roof:
     def __init__(self, roof_id, wkt_geom, area, irradiance):
         self.id = roof_id
