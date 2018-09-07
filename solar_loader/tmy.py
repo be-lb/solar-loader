@@ -1,7 +1,7 @@
 import csv
 import numpy as np
 from datetime import timedelta
-from pytz import timezone, utc
+from pytz import timezone
 
 brussels_zone = timezone('Europe/Brussels')
 central_europe_zone = timezone('CET')
@@ -59,7 +59,7 @@ class TMY:
     def get_float_average(self, key, t, sample_rate):
         sr = int(sample_rate)
         start = t - timedelta(days=sr // 2)
-        ref = self.get_float(key, t)
+        # ref = self.get_float(key, t)
         values = []
 
         for st in time_range(start, timedelta(days=1), sr):
