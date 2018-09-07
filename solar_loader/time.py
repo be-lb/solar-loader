@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from django.conf import settings
-from pytz import timezone, utc
+from pytz import timezone
 from time import perf_counter
 from collections import deque, namedtuple
 import numpy as np
