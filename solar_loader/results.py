@@ -7,19 +7,14 @@ import csv
 from datetime import datetime, timedelta
 from pytz import timezone, utc
 from pyproj import Proj, transform
-from pvlib.solarposition import get_solarposition
-from pvlib.irradiance import perez, total_irrad
-from pvlib.atmosphere import absoluteairmass, relativeairmass
+from pvlib.irradiance import total_irrad
 from pvlib.location import Location
-import pandas as pd
 import itertools as it
 
 from .time import hours_for_year
 from .lingua import rows_with_geom
-from .geom import tesselate
 from .radiation import compute_gk, incidence
-from .radiation_meteotest import compute_gk as compute_gk_mt
-from .sunpos import get_sun_position, SunposNight
+from .sunpos import get_sun_position
 from .tmy import make_key
 from .rdiso import get_rdiso5
 
