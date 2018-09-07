@@ -1,26 +1,20 @@
 import logging
-import math
-import os
-from collections import deque, namedtuple
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-from datetime import datetime, timedelta
 from functools import partial
 
 import numpy as np
-from django.conf import settings
 from psycopg2.extensions import AsIs
-from pytz import timezone
-from shapely import affinity, geometry, wkb, wkt, ops
+from shapely import geometry, ops
 
 from .geom import (GeometryMissingDimension, get_flattening_mat,
-                   multipoly_bbox, tesselate, transform_multipolygon,
-                   transform_triangle, unit_vector, vec3_add)
+                   tesselate, transform_multipolygon, transform_triangle,
+                   unit_vector)
 from .gis_geom import GISTriangle
-from .lingua import (make_polyhedral, make_polyhedral_p, rows_with_geom,
-                     shape_to_feature, triangle_to_geojson)
+from .lingua import (make_polyhedral, rows_with_geom, shape_to_feature,
+                     triangle_to_geojson)
 from .radiation import compute_gk
 from .records import Triangle
-from .sunpos import get_coords_from_angles, get_sun_position
+from .sunpos import get_sun_position
 from .time import TimeCounter, generate_sample_days
 
 logger = logging.getLogger(__name__)
