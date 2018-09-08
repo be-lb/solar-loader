@@ -6,12 +6,23 @@ import numpy as np
 from psycopg2.extensions import AsIs
 from shapely import geometry, ops
 
-from .geom import (GeometryMissingDimension, get_flattening_mat,
-                   tesselate, transform_multipolygon, transform_triangle,
-                   unit_vector)
+from .geom import (
+    GeometryMissingDimension,
+    get_flattening_mat,
+    get_triangle_area,
+    get_triangle_inclination,
+    tesselate,
+    transform_multipolygon,
+    transform_triangle,
+    unit_vector,
+)
 from .gis_geom import GISTriangle
-from .lingua import (make_polyhedral, rows_with_geom, shape_to_feature,
-                     triangle_to_geojson)
+from .lingua import (
+    make_polyhedral,
+    rows_with_geom,
+    shape_to_feature,
+    triangle_to_geojson,
+)
 from .radiation import compute_gk
 from .records import Triangle
 from .sunpos import get_sun_position
@@ -175,3 +186,17 @@ def get_results_roof(db, tmy, sample_rate, roof_id, with_shadows=False):
 
     return shape_to_feature(roof[1], roof_id,
                             dict(irradiance=np.sum(radiations), area=roof[2]))
+
+
+def get_roof_tilt(geom):
+    angles = []
+    areas = []
+    for t in tesselate(geom):
+        angles.append(get_triangle_inclination(t))
+        areas.append(get_triangle_area(t))
+
+    return sum(angles) / sum(areas)
+
+
+def get_roof_area(geom):
+    return sum([get_triangle_area(t) for t in tesselate(geom)])
