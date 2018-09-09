@@ -49,7 +49,7 @@ def init_triangle(tim, gis_triangle):
 def get_intersections_for_triangle(gis_triangle, sunvec, db):
     sunvecunit = unit_vector(sunvec)
 
-    nearvec = sunvecunit * 1.0  #0.1
+    nearvec = sunvecunit * 1.0  # 0.1
     farvec = sunvecunit * 200.0
 
     triangle_near = Triangle(gis_triangle.geom.a + nearvec,
@@ -192,8 +192,9 @@ def get_roof_tilt(geom):
     angles = []
     areas = []
     for t in tesselate(geom):
-        angles.append(get_triangle_inclination(t))
-        areas.append(get_triangle_area(t))
+        area = get_triangle_area(t)
+        angles.append(get_triangle_inclination(t) * area)
+        areas.append(area)
 
     return sum(angles) / sum(areas)
 
