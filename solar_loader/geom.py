@@ -104,7 +104,7 @@ def get_triangle_inclination(t):
     norm = get_triangle_normal(t)
 
     if norm[0] == 0 and norm[1] == 0:
-        return 0
+        return 90
     else:
         return np.rad2deg(angle_between(np.array([norm[0], norm[1], 0]), norm))
 
@@ -184,7 +184,7 @@ def tesselate(shape):
 def get_flattening_mat(vec):
     """
     Given a coordinates vector of 3 dimensions, this function
-    will return a matrix 
+    will return a matrix
     """
     dist = np.linalg.norm(vec)
     if abs(dist) > 0:

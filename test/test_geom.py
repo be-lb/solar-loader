@@ -4,6 +4,7 @@ from random import random
 from functools import partial
 from solar_loader import geom
 from solar_loader.records import Triangle
+import math
 
 SERIE_COUNT = 12
 
@@ -23,6 +24,8 @@ class TestGeom(unittest.TestCase):
         self.assertEqual(geom.angle_between((1, 0, 0), (1, 0, 0)), 0.0)
         self.assertEqual(
             geom.angle_between((1, 0, 0), (-1, 0, 0)), 3.141592653589793)
+        self.assertAlmostEqual(
+            geom.angle_between((1, 0, 1), (0, 0, 1)), math.pi / 4)
 
     def test_flat_mat(self):
         r = partial(get_rands, 3, lambda r: np.array(r))
@@ -45,28 +48,22 @@ class TestGeom(unittest.TestCase):
 
     def test_triangle_inclination(self):
         a, b, c = ((0, 0, 0.00001), (1, 0, 0), (0, 1, 0))
-        t = Triangle(np.array(a), np.array(b), np.array(c))  # doit etre 90 : ok !
+        t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t),
-            90
-        )
+            geom.get_triangle_inclination(t), 90, delta=0.001)
 
         a, b, c = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
-        t = Triangle(np.array(a), np.array(b), np.array(c))   # doit etre 90 : pbm !
+        t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t),
-            90
-        )
+            geom.get_triangle_inclination(t), 90)
 
         a, b, c = ((0, 0, 0), (1, 0, 1), (0, 1, 1))
-        t = Triangle(np.array(a), np.array(b), np.array(c))  # doit etre 45 : pbm !
+        t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t),
-            45
-        )
+            geom.get_triangle_inclination(t), 45) # 30 degree  - donne 35 def
 
 if __name__ == '__main__':
     unittest.main()
