@@ -11,6 +11,7 @@ from .geom import (
     get_flattening_mat,
     get_triangle_area,
     get_triangle_inclination,
+    get_triangle_azimut,
     tesselate,
     transform_multipolygon,
     transform_triangle,
@@ -197,6 +198,17 @@ def get_roof_tilt(geom):
         areas.append(area)
 
     return sum(angles) / sum(areas)
+
+
+def get_roof_azimuth(geom):
+    azimuths = []
+    areas = []
+    for t in tesselate(geom):
+        area = get_triangle_area(t)
+        azimuths.append(get_triangle_azimut(t) * area)
+        areas.append(area)
+
+    return sum(azimuths) / sum(areas)
 
 
 def get_roof_area(geom):
