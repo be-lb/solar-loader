@@ -8,6 +8,12 @@ import math
 
 SERIE_COUNT = 12
 
+angle_30 = math.pi / 6
+angle_45 = math.pi / 4
+angle_60 = math.pi / 3
+angle_90 = math.pi / 2
+angle_180 = math.pi
+
 
 def get_rands(n, f):
     for i in range(SERIE_COUNT):
@@ -20,12 +26,14 @@ def get_rands(n, f):
 class TestGeom(unittest.TestCase):
     def test_angle_between(self):
         self.assertEqual(
-            geom.angle_between((1, 0, 0), (0, 1, 0)), 1.5707963267948966)
+            geom.angle_between((1, 0, 0), (0, 1, 0)), angle_90)
         self.assertEqual(geom.angle_between((1, 0, 0), (1, 0, 0)), 0.0)
         self.assertEqual(
-            geom.angle_between((1, 0, 0), (-1, 0, 0)), 3.141592653589793)
+            geom.angle_between((1, 0, 0), (-1, 0, 0)), angle_180)
         self.assertAlmostEqual(
-            geom.angle_between((1, 0, 1), (0, 0, 1)), math.pi / 4)
+            geom.angle_between((1, 0, 1), (0, 0, 1)), angle_45)
+        self.assertAlmostEqual(
+            geom.angle_between((1, 0, 0), (1, 0, math.tan(angle_60))), angle_60)
 
     def test_flat_mat(self):
         r = partial(get_rands, 3, lambda r: np.array(r))
@@ -51,19 +59,32 @@ class TestGeom(unittest.TestCase):
         t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t), 90, delta=0.001)
+            geom.get_triangle_inclination(t), 0, delta=0.001)
 
         a, b, c = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
         t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t), 90)
+            geom.get_triangle_inclination(t), 0)
 
-        a, b, c = ((0, 0, 0), (1, 0, 1), (0, 1, 1))
+        a, b, c = ((0, 0, 0), (math.sqrt(2), 0, 1), (0, math.sqrt(2), 1))
         t = Triangle(np.array(a), np.array(b), np.array(c))
 
         self.assertAlmostEqual(
-            geom.get_triangle_inclination(t), 45) # 30 degree  - donne 35 def
+            geom.get_triangle_inclination(t), 45)
+
+        a, b, c = ((0, 0, 0), (0, 0, 1), (0, 1, 0))
+        t = Triangle(np.array(a), np.array(b), np.array(c))
+
+        self.assertAlmostEqual(
+            geom.get_triangle_inclination(t), 90)
+
+        a, b, c = ((0, 0, 0), (1, 0, math.tan(angle_60)), (1, 1, math.tan(angle_60)))
+        t = Triangle(np.array(a), np.array(b), np.array(c))
+
+        self.assertAlmostEqual(
+            geom.get_triangle_inclination(t), 60)
+
 
 if __name__ == '__main__':
     unittest.main()

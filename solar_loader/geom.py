@@ -101,12 +101,15 @@ def get_triangle_azimut(t):
 
 
 def get_triangle_inclination(t):
+    """
+    Return the tilt (or inclination) of the triangle
+    """
     norm = get_triangle_normal(t)
 
     if norm[0] == 0 and norm[1] == 0:
-        return 90
+        return 0
     else:
-        return np.rad2deg(angle_between(np.array([norm[0], norm[1], 0]), norm))
+        return np.rad2deg(angle_between(np.array([0, 0, 1]), norm))
 
 
 def get_triangle_center(t):
