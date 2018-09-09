@@ -33,6 +33,27 @@ class TestGeom(unittest.TestCase):
             self.assertAlmostEqual(ft.a[2], ft.b[2], delta=0.0000001)
             self.assertAlmostEqual(ft.a[2], ft.c[2], delta=0.0000001)
 
+    def test_norm(self):
+        a = np.array([0, 0, 0])
+        b = np.array([1, 0, 0])
+        c = np.array([0, 1, 0])
+        t = Triangle(a, b, c)
+        norm = geom.get_triangle_normal(t)
+        self.assertEqual(norm[0], 0)
+        self.assertEqual(norm[1], 0)
+        self.assertNotEqual(norm[2], 0)
+
+    def test_triangle_inclination(self):
+        a, b, c = ((0, 0, 0.00001), (1, 0, 0), (0, 1, 0))
+        t = Triangle(np.array(a), np.array(b), np.array(c))
+
+        a, b, c = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
+        t2 = Triangle(np.array(a), np.array(b), np.array(c))
+
+        self.assertAlmostEqual(
+            geom.get_triangle_inclination(t),
+            geom.get_triangle_inclination(t2)
+        )
 
 if __name__ == '__main__':
     unittest.main()
