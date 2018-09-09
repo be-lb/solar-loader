@@ -45,14 +45,27 @@ class TestGeom(unittest.TestCase):
 
     def test_triangle_inclination(self):
         a, b, c = ((0, 0, 0.00001), (1, 0, 0), (0, 1, 0))
-        t = Triangle(np.array(a), np.array(b), np.array(c))
-
-        a, b, c = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
-        t2 = Triangle(np.array(a), np.array(b), np.array(c))
+        t = Triangle(np.array(a), np.array(b), np.array(c))  # doit etre 90 : ok !
 
         self.assertAlmostEqual(
             geom.get_triangle_inclination(t),
-            geom.get_triangle_inclination(t2)
+            90
+        )
+
+        a, b, c = ((0, 0, 0), (1, 0, 0), (0, 1, 0))
+        t = Triangle(np.array(a), np.array(b), np.array(c))   # doit etre 90 : pbm !
+
+        self.assertAlmostEqual(
+            geom.get_triangle_inclination(t),
+            90
+        )
+
+        a, b, c = ((0, 0, 0), (1, 0, 1), (0, 1, 1))
+        t = Triangle(np.array(a), np.array(b), np.array(c))  # doit etre 45 : pbm !
+
+        self.assertAlmostEqual(
+            geom.get_triangle_inclination(t),
+            45
         )
 
 if __name__ == '__main__':
