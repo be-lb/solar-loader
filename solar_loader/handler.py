@@ -22,7 +22,7 @@ from .store import Data
 from .tmy import TMY
 from .lingua import make_feature_collection, rows_with_geom, shape_to_feature
 from .roof import Roof
-from .compute import get_roof_area, get_roof_tilt
+from .compute import get_roof_area, get_roof_tilt, get_roof_azimuth
 
 import logging
 logger = logging.getLogger(__name__)
@@ -67,6 +67,7 @@ def get_roofs(request, capakey):
                 'irradiance': roof.irradiance,
                 'area': get_roof_area(roof.wkt_geom),
                 'tilt': get_roof_tilt(roof.wkt_geom),
+                'azimuth': get_roof_azimuth(roof.wkt_geom),
                 'productivity': roof.productivity
             }) for roof in roofs
     ]
