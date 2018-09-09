@@ -63,10 +63,13 @@ def get_roofs(request, capakey):
 
     features = [
         shape_to_feature(
-            roof.wkt_geom, roof.id, {
+            roof.wkt_geom,
+            roof.id,
+            {
                 'irradiance': roof.irradiance,
                 'area': get_roof_area(roof.wkt_geom),
-                'tilt': get_roof_tilt(roof.wkt_geom),
+                # hot fix
+                'tilt': 90 - get_roof_tilt(roof.wkt_geom),
                 'azimuth': get_roof_azimuth(roof.wkt_geom),
                 'productivity': roof.productivity
             }) for roof in roofs
