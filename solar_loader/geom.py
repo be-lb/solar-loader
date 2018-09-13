@@ -10,6 +10,9 @@ class GeometryError(Exception):
 
 
 class GeometryTypeError(GeometryError):
+    """
+    NOT_USED
+    """
     def __init__(self, gt, expected=None):
         if expected is not None:
             self.message = 'Expected "{}", got "{}"'.format(expected, gt)
@@ -29,10 +32,18 @@ def vec2_dist(a, b):
 
 
 def vec_dist(p, q):
+    """
+    returns the distance between numpy vectors
+    NOT_USED
+    """
     return math.sqrt(np.sum(np.square(p - q)))
 
 
 def vec3_add(a, b):
+    """
+    Addition between 3d vectors
+    NOT_USED
+    """
     return [
         a[0] + b[0],
         a[1] + b[1],
@@ -46,9 +57,9 @@ def rotation_matrix(axis, theta):
     the given axis by theta radians.
     """
     axis = np.asarray(axis)
-    axis = axis / math.sqrt(np.dot(axis, axis))
+    axis_unit = unit_vector(axis)
     a = math.cos(theta / 2.0)
-    b, c, d = -axis * math.sin(theta / 2.0)
+    b, c, d = -axis_unit * math.sin(theta / 2.0)
     aa, bb, cc, dd = a * a, b * b, c * c, d * d
     bc, ad, ac, ab, bd, cd = b * c, a * d, a * c, a * b, b * d, c * d
     return np.array([[aa + bb - cc - dd, 2 * (bc + ad), 2 * (bd - ac)],
@@ -56,16 +67,11 @@ def rotation_matrix(axis, theta):
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-# def polygon_area(x, y):
-#     correction = x[-1] * y[0] - y[-1] * x[0]
-#     main_area = np.dot(x[:-1], y[1:]) - np.dot(y[:-1], x[1:])
-#     return 0.5 * np.abs(main_area + correction)
-
-# def get_triangle_area(pts):
-#     return polygon_area(pts[:, 0], pts[:, 1])
-
-
 def get_centroid(arr):
+    """
+    Get the centroid
+    NOT_USED
+    """
     length = arr.shape[0]
     sum_x = np.sum(arr[:, 0])
     sum_y = np.sum(arr[:, 1])
@@ -76,22 +82,20 @@ def get_triangle_normal(t):
     """returns normal vector of a records.Triangle
 
     see https://en.wikipedia.org/wiki/Cross_product
+    TODO est un pbm si z est négatif ? (si oui faut inverser càd dire faire -1)
     """
     a = np.cross(
         t.b - t.a,
         t.c - t.a,
     )
-    b = np.cross(
-        t.b - t.a,
-        t.c - t.a,
-    )
-    # simple check for highest z as we cannot assume triangles are always in the same direction
-    if a[2] > b[2]:
-        return a
-    return b
+    return a
 
 
 def get_triangle_azimut(t):
+    """
+    The triangle azimith (in degree) for a given Triange t
+    TODO quel azimuth prendre à partir du nord, sens horaire ou non ?
+    """
     norm = get_triangle_normal(t)
 
     if norm[0] == 0 and norm[1] == 0:
@@ -153,11 +157,17 @@ def polygon_drop_z(poly):
 
 
 def polygon_add_z(poly, zs):
+    """
+    NOT_USED
+    """
     return geometry.Polygon([(coord[0], coord[1], zs[i])
                              for i, coord in enumerate(poly.exterior.coords)])
 
 
 def multipolygon_drop_z(mpoly):
+    """
+    NOT USED (used in a commented line)
+    """
     ps = []
     zs = []
     for p, z in map(polygon_drop_z, mpoly):
@@ -261,6 +271,9 @@ poly_max_z = reduce_coords(partial(op_coord, max, 2), negative_infinity)
 
 
 def poly_bbox(poly):
+    """
+    NOT_USED
+    """
     return (
         poly_min_x(poly),
         poly_min_y(poly),
@@ -272,6 +285,9 @@ def poly_bbox(poly):
 
 
 def multipoly_bbox(mp):
+    """
+    NOT_USED
+    """
     return (
         reduce(lambda acc, poly: min(acc, poly_min_x(poly)), mp,
                positive_infinity),
