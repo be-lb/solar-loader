@@ -173,6 +173,8 @@ class TestGeom(unittest.TestCase):
             geom.angle_between((-1, 0, 0), (0, 1, 0)), math.pi * 3 / 2)
         self.assertAlmostEqual(
             geom.angle_between((0, 1, 0), (-1, 0, 0)), math.pi / 2)
+        self.assertAlmostEqual(
+            geom.angle_between((0, -1, 0), (0, 0, 1)), math.pi * 3 / 2)
 
 
 if __name__ == '__main__':
