@@ -1,5 +1,5 @@
 import itertools as it
-from celery import Celery, chain, chord, group, Task
+from functools import partial
 from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from .store import Data
 from .tmy import TMY
 from .records import GisTriangle, Triangle
-from .time import generate_sample_times
+from .time import generate_sample_days
 from .geom import (
     get_flattening_mat,
     get_triangle_area,
@@ -27,17 +27,12 @@ from .radiation import compute_gk
 from .rad5 import rad5
 
 django.setup()
-db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+# db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
 results_db = Data(settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
 
 sample_rate = getattr(settings, 'SOLAR_SAMPLE_RATE', 14)
 with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', True)
-
-app = Celery('solar')
-app.conf.task_serializer = 'pickle'
-app.conf.result_serializer = 'pickle'
-app.conf.accept_content = ['pickle']
 
 
 def round5(f):
@@ -47,17 +42,6 @@ def round5(f):
     return mul * 5
 
 
-@app.task(ignore_result=False)
-def tsum(numbers):
-    return sum(numbers)
-
-
-@app.task(ignore_result=False)
-def query_store(roof_id, rad):
-    results_db.exec('insert_result', (roof_id, rad))
-
-
-@app.task(ignore_result=False)
 def compute_radiation(exposed_area, tim, triangle):
     # return rad5(round5(triangle.tilt), round5(
     #     triangle.azimuth)) * triangle.area
@@ -91,15 +75,7 @@ def compute_radiation(exposed_area, tim, triangle):
     return (diffuse + direct) * sample_rate  # / triangle.area  # * sample_rate
 
 
-@app.task(ignore_result=False)
-def compute_exposed_area(row_intersect, triangle, sunvec):
-    # print('compute_exposed_area({}, {}, {})'.format(triangle, sunvec,
-    #                                                 row_intersect))
-    return get_exposed_area(triangle, sunvec, row_intersect)
-
-
-@app.task(ignore_result=False, queue='postgis')
-def query_intersections(triangle, sunvec):
+def query_intersections(db, triangle, sunvec):
     nearvec = sunvec * 1.0
     farvec = sunvec * 200.0
     triangle_near = Triangle(triangle.a + nearvec, triangle.b + nearvec,
@@ -111,23 +87,37 @@ def query_intersections(triangle, sunvec):
     return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 
 
-def make_chain_with_shadows(ti, tr):
-    sunpos = get_sun_position(tr.center, ti)
-    sunvec = unit_vector(
-        get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth) -
-        tr.center)
-    return (query_intersections.s(tr.geom, sunvec)
-            | compute_exposed_area.s(tr, sunvec)
-            | compute_radiation.s(ti, tr))
+def make_task(day, tr):
+    # sunpos_s = [get_sun_position(tr.center, ti) for ti in day]
+    # sunvec_s = [
+    #     unit_vector(
+    #         get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth)
+    #         - tr.center) for sunpos in sunpos_s
+    # ]
+
+    time_and_vec = []
+    for ti in day:
+        sunpos = get_sun_position(tr.center, ti)
+        sunvec = unit_vector(
+            get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth)
+            - tr.center)
+        time_and_vec.append((ti, sunvec))
+
+    def chain(db, executor):
+        rad = 0
+        get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
+        for (ti, sunvec), row_intersect in zip(
+                time_and_vec, executor.map(get_intersections, time_and_vec)):
+            exposed_area = get_exposed_area(tr, sunvec, row_intersect)
+            rad += compute_radiation(exposed_area, ti, tr)
+        return rad
+
+    return chain
 
 
-def make_chain_without_shadows(ti, tr):
-    return compute_radiation.s(tr.area, ti, tr)
-
-
-def prepare_task(roof_geometry):
+def process_tasks(roof_geometry, db, executor):
     triangles = []
-    times = generate_sample_times(sample_rate)
+    days = generate_sample_days(sample_rate)
     for geom in tesselate(roof_geometry):
         triangles.append(
             GisTriangle(
@@ -138,62 +128,22 @@ def prepare_task(roof_geometry):
                 get_triangle_area(geom),
             ))
 
-    if with_shadows:
-        return chord(
-            make_chain_with_shadows(ti, tr)
-            for ti, tr in it.product(times, triangles))
+    tasks = [make_task(day, tr) for day, tr in it.product(days, triangles)]
 
-    return chord(
-        make_chain_without_shadows(ti, tr)
-        for ti, tr in it.product(times, triangles))
-
-
-def compute_radiation_for_roof_direc(roof_geometry):
-    triangles = []
-    # times = generate_sample_times(sample_rate)
-    for geom in tesselate(roof_geometry):
-        triangles.append(
-            GisTriangle(
-                geom,
-                get_triangle_azimut(geom),
-                get_triangle_inclination(geom),
-                get_triangle_center(geom),
-                get_triangle_area(geom),
-            ))
-
-    rads = map(
-        lambda t: rad5(round5(t.tilt), round5(t.azimuth)) * t.area,
-        triangles,
-    )
-
-    return sum(rads)
+    return map(lambda t: t(db, executor), tasks)
 
 
 def compute_radiation_for_roof(row):
     print('compute_radiation_for_roof({})'.format(row[0]))
     id = row[0]
     geom = row[1]
-    t = prepare_task(geom)
     area = get_roof_area(geom)
-    total_rad = t(tsum.s()).get()
+    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+
+    with ThreadPoolExecutor() as executor:
+        total_rad = sum(process_tasks(geom, db, executor))
 
     return id, total_rad / area
-
-
-def compute_radiation_for_parcel(capakey):
-    for row in rows_with_geom(db, 'select_roof_within', (capakey, ), 1):
-        start = perf_counter()
-        geom = row[1]
-        print('roof({}) => {} ({})'.format(row[0],
-                                           compute_radiation_for_roof(geom),
-                                           perf_counter() - start))
-
-
-def process_roof_row(row):
-    geom = row[1]
-    rad = compute_radiation_for_roof_direc(geom)
-    roof_id = row[0]
-    return roof_id, rad
 
 
 def insert_result(r):
@@ -202,26 +152,10 @@ def insert_result(r):
     return r[0]
 
 
-def compute_for_all_direct():
-    results_db.exec('drop_result')
-    results_db.exec('create_result')
-
-    dones = []
-    with ProcessPoolExecutor() as executor:
-        rows = rows_with_geom(db, 'select_roof_all', (), 1)
-        for roof_id, rad in executor.map(process_roof_row, rows, chunksize=4):
-            print('{}'.format(len(dones)))
-            dones.append((roof_id, rad))
-
-    with ThreadPoolExecutor() as executor:
-        for i in executor.map(insert_result, dones):
-            print('inserted {}'.format(i))
-
-
 def compute_for_all(limit):
     results_db.exec('drop_result')
     results_db.exec('create_result')
-
+    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
     # dones = []
     with ProcessPoolExecutor() as executor:
         if limit is not None:
