@@ -27,11 +27,12 @@ from .radiation import compute_gk
 from .rad5 import rad5
 
 django.setup()
-SAMPLE_RATE = 7 * 4 * 2
 db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+results_db = Data(settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
 
-with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', False)
+sample_rate = getattr(settings, 'SOLAR_SAMPLE_RATE', 14)
+with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', True)
 
 app = Celery('solar')
 app.conf.task_serializer = 'pickle'
@@ -54,41 +55,41 @@ def tsum(numbers):
 
 @app.task(ignore_result=False)
 def query_store(roof_id, rad):
-    db.exec('insert_result', (roof_id, rad))
+    results_db.exec('insert_result', (roof_id, rad))
 
 
 @app.task(ignore_result=False)
 def compute_radiation(exposed_area, tim, triangle):
-    return rad5(round5(triangle.tilt), round5(
-        triangle.azimuth)) * triangle.area
-    # rdiso_flat, rdiso = get_rdiso5(
-    #     round5(triangle.azimuth), round5(triangle.tilt))
-    # gh = tmy.get_float('G_Gh', tim)
-    # dh = tmy.get_float('G_Dh', tim)
-    # hs = tmy.get_float('hs', tim)
-    # Az = tmy.get_float('Az', tim)
-    # month = tim.month
-    # tmy_index = tmy.get_index(tim)
+    # return rad5(round5(triangle.tilt), round5(
+    #     triangle.azimuth)) * triangle.area
+    rdiso_flat, rdiso = get_rdiso5(
+        round5(triangle.azimuth), round5(triangle.tilt))
+    gh = tmy.get_float_average('G_Gh', tim, sample_rate)
+    dh = tmy.get_float_average('G_Dh', tim, sample_rate)
+    hs = tmy.get_float('hs', tim)
+    Az = tmy.get_float('Az', tim)
+    month = tim.month
+    tmy_index = tmy.get_index(tim)
 
-    # radiation_global, radiation_direct = compute_gk(
-    #     gh,
-    #     dh,
-    #     90.0 - hs,
-    #     Az,
-    #     0.2,
-    #     triangle.azimuth,
-    #     triangle.tilt,
-    #     28,  # Meteonorm 7 Output Preview for Bruxelles centre
-    #     1,
-    #     month,
-    #     tmy_index,
-    #     rdiso_flat,
-    #     rdiso)
+    radiation_global, radiation_direct = compute_gk(
+        gh,
+        dh,
+        90.0 - hs,
+        Az,
+        0.2,
+        triangle.azimuth,
+        triangle.tilt,
+        28,  # Meteonorm 7 Output Preview for Bruxelles centre
+        1,
+        month,
+        tmy_index,
+        rdiso_flat,
+        rdiso)
 
-    # diffuse = triangle.area * (radiation_global - radiation_global)
-    # direct = exposed_area * radiation_direct
+    diffuse = triangle.area * (radiation_global - radiation_direct)
+    direct = exposed_area * radiation_direct
 
-    # return diffuse + direct
+    return (diffuse + direct) * sample_rate / triangle.area
 
 
 @app.task(ignore_result=False)
@@ -127,7 +128,7 @@ def make_chain_without_shadows(ti, tr):
 
 def prepare_task(roof_geometry):
     triangles = []
-    times = generate_sample_times(SAMPLE_RATE)
+    times = generate_sample_times(sample_rate)
     for geom in tesselate(roof_geometry):
         triangles.append(
             GisTriangle(
@@ -150,7 +151,7 @@ def prepare_task(roof_geometry):
 
 def compute_radiation_for_roof_direc(roof_geometry):
     triangles = []
-    # times = generate_sample_times(SAMPLE_RATE)
+    # times = generate_sample_times(sample_rate)
     for geom in tesselate(roof_geometry):
         triangles.append(
             GisTriangle(
@@ -169,9 +170,9 @@ def compute_radiation_for_roof_direc(roof_geometry):
     return sum(rads)
 
 
-def compute_radiation_for_roof(roof_geometry):
-    t = prepare_task(roof_geometry)
-    return t(tsum.s()).get()
+def compute_radiation_for_roof(row):
+    t = prepare_task(row[1])
+    return row[0], t(tsum.s()).get()
 
 
 def compute_radiation_for_parcel(capakey):
@@ -191,12 +192,13 @@ def process_roof_row(row):
 
 
 def insert_result(r):
-    db.exec('insert_result', r)
+    results_db.exec('insert_result', r)
     return r[0]
 
 
-def compute_for_all():
-    db.exec('create_result')
+def compute_for_all_direct():
+    results_db.exec('drop_result')
+    results_db.exec('create_result')
 
     dones = []
     with ProcessPoolExecutor() as executor:
@@ -208,3 +210,30 @@ def compute_for_all():
     with ThreadPoolExecutor() as executor:
         for i in executor.map(insert_result, dones):
             print('inserted {}'.format(i))
+
+
+def compute_for_all(limit):
+    results_db.exec('drop_result')
+    results_db.exec('create_result')
+
+    # dones = []
+    with ProcessPoolExecutor() as executor:
+        if limit is not None:
+            rows = rows_with_geom(db, 'select_roof_all_limit', (limit, ), 1)
+        else:
+            rows = rows_with_geom(db, 'select_roof_all', (), 1)
+
+        # proc = lambda row: (row[0], compute_radiation_for_roof(row[1]))
+
+        for roof_id, rad in executor.map(
+                compute_radiation_for_roof, list(rows), chunksize=4):
+            # print('{}'.format(len(dones)))
+            # dones.append((roof_id, rad))
+            insert_result((
+                roof_id,
+                rad,
+            ))
+
+    # with ThreadPoolExecutor() as executor:
+    #     for i in executor.map(insert_result, dones):
+    #         print('inserted {}'.format(i))

@@ -78,8 +78,8 @@ class Data:
                 start_time = perf_counter()
                 for k in safe_params:
                     q = q.replace('__{}__'.format(k), safe_params[k])
-                print('+++++ SQL({}) ++++++++++++++++++++'.format(query_name))
-                print(format_q(q, args))
+                # print('+++++ SQL({}) ++++++++++++++++++++'.format(query_name))
+                # print(format_q(q, args))
                 cur.execute(q, args)
                 self._times.append(perf_counter() - start_time)
                 for row in cur:

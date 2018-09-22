@@ -19,6 +19,6 @@
 -- );
 
 
-INSERT INTO "solar"."result" 
+INSERT INTO "result" 
     (roof_id, irradiance)
     VALUES (%s, %s);

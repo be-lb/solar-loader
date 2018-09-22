@@ -14,9 +14,6 @@ from .time import start_counter, summarize_times
 from .compute import get_results_roof
 from django.conf import settings
 
-data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-tmy = TMY(settings.SOLAR_TMY)
-
 
 @attr.s
 class ContextObj:
@@ -33,6 +30,8 @@ def cli():
 @click.argument('roof_id', type=str, required=True)
 @click.argument('sample_rate', type=int, default=30)
 def compute(shadows, roof_id, sample_rate):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     start_counter()
     r = get_results_roof(data_store, tmy, sample_rate, roof_id, shadows)
     summarize_times()
@@ -47,6 +46,8 @@ def compute(shadows, roof_id, sample_rate):
 @click.argument('limit', type=int, default=10)
 @click.argument('offset', type=int, default=0)
 def rbc(sample_rate, limit, offset):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     make_results(data_store, tmy, sample_rate, limit, offset)
 
 
@@ -54,6 +55,8 @@ def rbc(sample_rate, limit, offset):
 @click.argument('filename', type=str, required=True)
 @click.argument('sample_rate', type=int, default=30)
 def profile(filename, sample_rate):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     m_profile(data_store, tmy, sample_rate, filename)
 
 
@@ -61,18 +64,24 @@ def profile(filename, sample_rate):
 @click.argument('filename', type=str, required=True)
 @click.argument('sample_rate', type=int, default=30)
 def pvlib(filename, sample_rate):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     m_profile_pvlib(data_store, tmy, sample_rate, filename)
 
 
 @cli.command()
 @click.argument('filename', type=str, required=True)
 def incidence(filename):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     m_incidence(data_store, tmy, filename)
 
 
 @cli.command()
 @click.argument('filename', type=str, required=True)
 def day(filename):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     m_profile_day(data_store, tmy, filename)
 
 
@@ -90,6 +99,8 @@ def radiations_table():
 @click.argument('filename', type=str, required=True)
 @click.argument('year', type=int, required=True)
 def radiations_file(filename, year):
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     make_radiation_file(data_store, tmy, filename, year)
 
 
@@ -100,8 +111,9 @@ def rad(capakey):
 
 
 @cli.command()
-def all_rad():
-    compute_for_all()
+@click.option('--limit', type=int)
+def all_rad(limit):
+    compute_for_all(limit)
 
 
 def main():
