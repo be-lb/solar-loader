@@ -6,6 +6,7 @@ from munch import munchify
 import logging
 
 from django.db import connections
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +55,16 @@ def format_q(q, args):
 
 class Data:
     def __init__(self, connection_name, tables):
-        self._cn = connection_name
+        if isinstance(connection_name, str):
+            self._cn = [connection_name]
+        else:
+            self._cn = connection_name
+
         self._queries = list(make_queries(tables))
         self._times = []
+
+    def get_connection(self):
+        return connections[random.choice(self._cn)]
 
     def find_query(self, query_name):
         for name, query in self._queries:
@@ -65,13 +73,13 @@ class Data:
         raise QueryNotFound(query_name)
 
     def exec(self, query_name, args=()):
-        conn = connections[self._cn]
+        conn = self.get_connection()
         with conn.cursor() as cur:
             cur.execute(self.find_query(query_name), args)
 
     def rows(self, query_name, safe_params={}, args=()):
-        logger.debug('SQL({}) on {}'.format(query_name, self._cn))
-        conn = connections[self._cn]
+        # logger.debug('SQL({}) on {}'.format(query_name, self._cn))
+        conn = self.get_connection()
         try:
             with conn.cursor() as cur:
                 q = self.find_query(query_name)

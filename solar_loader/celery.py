@@ -89,7 +89,7 @@ def compute_radiation(exposed_area, tim, triangle):
     diffuse = triangle.area * (radiation_global - radiation_direct)
     direct = exposed_area * radiation_direct
 
-    return (diffuse + direct) * sample_rate / triangle.area
+    return (diffuse + direct) / triangle.area  # * sample_rate
 
 
 @app.task(ignore_result=False)
@@ -227,7 +227,7 @@ def compute_for_all(limit):
 
         for roof_id, rad in executor.map(
                 compute_radiation_for_roof, list(rows), chunksize=4):
-            # print('{}'.format(len(dones)))
+            print('{} => {}'.format(roof_id, rad))
             # dones.append((roof_id, rad))
             insert_result((
                 roof_id,
