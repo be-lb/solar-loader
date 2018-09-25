@@ -4,3 +4,4 @@ FROM
     {roof.table} r 
 ORDER BY r.id    
 LIMIT %s
+OFFSET %s

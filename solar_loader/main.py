@@ -115,8 +115,9 @@ def radiations_file(filename, year):
 
 @cli.command()
 @click.option('--limit', type=int)
-def all_rad(limit):
-    compute_for_all(limit)
+@click.option('--offset', type=int)
+def all_rad(limit, offset):
+    compute_for_all(limit, offset)
 
 
 @cli.command()

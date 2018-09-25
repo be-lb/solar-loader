@@ -168,14 +168,17 @@ def insert_result(r):
     return r[0]
 
 
-def compute_for_all(limit):
+def compute_for_all(limit, offset=0):
     results_db.exec('drop_result')
     results_db.exec('create_result')
     db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
     if limit is not None:
-        rows = rows_with_geom(db, 'select_roof_all_limit', (limit, ), 1)
+        rows = rows_with_geom(db, 'select_roof_all_limit', (
+            limit,
+            offset,
+        ), 1)
     else:
-        rows = rows_with_geom(db, 'select_roof_all', (), 1)
+        rows = rows_with_geom(db, 'select_roof_all', (offset, ), 1)
 
     with ProcessPoolExecutor() as executor:
         for roof_id, rad in executor.map(
