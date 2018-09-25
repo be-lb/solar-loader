@@ -13,7 +13,7 @@ import itertools as it
 
 from .time import hours_for_year
 from .lingua import rows_with_geom
-from .radiation import compute_gk, incidence
+from .radiation import compute_gk
 from .sunpos import get_sun_position
 from .tmy import make_key
 from .rdiso import get_rdiso5
@@ -22,8 +22,10 @@ brussels_zone = timezone('Europe/Brussels')
 l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
+
 def mk_key(t, tilt, azimut):
-    return '{:02}{:02}{:02}{:02}{:02}'.format( t.month,t.day,t.hour, tilt,azimut)
+    return '{:02}{:02}{:02}{:02}{:02}'.format(t.month, t.day, t.hour, tilt,
+                                              azimut)
 
 
 def make_radiation_table(db, tmy):
@@ -409,46 +411,6 @@ def m_profile_pvlib(db, tmy, sample_interval, filename):
         # writer.writerow(map(lambda v: str(v), [t for t in range(0, 360, 5)]))
         for row in profile:
             writer.writerow(map(lambda v: math.floor(v), row))
-
-
-def m_incidence(db, tmy, filename):
-    sample_rate = 30
-    profile = []
-    skip_az = 40
-    optimal = None
-
-    for tilt in range(35, 50, 5):
-        results = []
-        for azimuth in range(skip_az, 360 - skip_az, 5):
-            res_row = 0.0
-
-            for tim in generate_sample_times(sample_rate):
-                gh = tmy.get_float('Global Horizontal Radiation', tim)
-                dh = tmy.get_float('Diffuse Horizontal Radiation', tim)
-                sunpos = get_sun_position(BXL_CENTER, tim)
-
-                inc, rad = incidence(gh, dh, sunpos.sza, sunpos.saa, azimuth,
-                                     tilt)
-                res_row += inc
-
-            yearly_rad = res_row * float(sample_rate)
-            results.append(yearly_rad)
-
-            print('({}, {}) => {} '.format(tilt, azimuth, yearly_rad))
-
-            if optimal is None:
-                optimal = (yearly_rad, tilt, azimuth)
-            elif yearly_rad > optimal[0]:
-                optimal = (yearly_rad, tilt, azimuth)
-
-        profile.append(results)
-
-    print('Optimal({}) => Tilt({}), Azimuth({})'.format(*optimal))
-
-    with open(filename, 'w') as csvfile:
-        writer = csv.writer(csvfile)
-        for row in profile:
-            writer.writerow(row)
 
 
 def m_profile_day(db, tmy, filename):

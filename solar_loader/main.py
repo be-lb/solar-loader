@@ -8,7 +8,7 @@ from .final import compute_for_all, display_diff
 from .store import Data
 from .tmy import TMY
 from .results import (make_radiation_file, make_radiation_table, make_results,
-                      m_profile, m_incidence, m_profile_day, m_profile_pvlib,
+                      m_profile, m_profile_day, m_profile_pvlib,
                       compare_sunpos)
 from .time import start_counter, summarize_times
 from .compute import get_results_roof
@@ -67,14 +67,6 @@ def pvlib(filename, sample_rate):
     data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
     tmy = TMY(settings.SOLAR_TMY)
     m_profile_pvlib(data_store, tmy, sample_rate, filename)
-
-
-@cli.command()
-@click.argument('filename', type=str, required=True)
-def incidence(filename):
-    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-    tmy = TMY(settings.SOLAR_TMY)
-    m_incidence(data_store, tmy, filename)
 
 
 @cli.command()
