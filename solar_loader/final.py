@@ -33,6 +33,9 @@ tmy = TMY(settings.SOLAR_TMY)
 
 sample_rate = getattr(settings, 'SOLAR_SAMPLE_RATE', 14)
 with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', True)
+flat_threshold = getattr(settings, 'SOLAR_FLAT_THRESHOLD', 5)
+optimal_azimuth = getattr(settings, 'SOLAR_OPTIMAL_AZIMUTH', 180)
+optimal_tilt = getattr(settings, 'SOLAR_OPTIMAL_TILT', 40)
 
 print('sample_rate: {}'.format(sample_rate))
 print('with_shadows: {}'.format(with_shadows))
@@ -46,10 +49,14 @@ def round5(f):
 
 
 def compute_radiation(exposed_area, tim, triangle):
-    # return rad5(round5(triangle.tilt), round5(
-    #     triangle.azimuth)) * triangle.area
-    rdiso_flat, rdiso = get_rdiso5(
-        round5(triangle.azimuth), round5(triangle.tilt))
+    azimuth = triangle.azimuth
+    tilt = triangle.tilt
+    # here we special case "flat" roofs
+    if tilt <= flat_threshold:
+        azimuth = optimal_azimuth
+        tilt = optimal_tilt
+
+    rdiso_flat, rdiso = get_rdiso5(round5(azimuth), round5(tilt))
     gh = tmy.get_float_average('G_Gh', tim, sample_rate)
     dh = tmy.get_float_average('G_Dh', tim, sample_rate)
     hs = tmy.get_float('hs', tim)
@@ -63,8 +70,8 @@ def compute_radiation(exposed_area, tim, triangle):
         90.0 - hs,
         Az,
         0.2,
-        triangle.azimuth,
-        triangle.tilt,
+        azimuth,
+        tilt,
         28,  # Meteonorm 7 Output Preview for Bruxelles centre
         1,
         month,
