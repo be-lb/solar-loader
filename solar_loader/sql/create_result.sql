@@ -1,8 +1,8 @@
 
 
-CREATE TABLE "result" (
+CREATE TABLE  {results.table}(
     id serial,
-    roof_id character varying(50),
-    irradiance decimal
+    {results.roof_id} character varying(50),
+    {results.irradiance} decimal
 );
 

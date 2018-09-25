@@ -22,6 +22,9 @@ brussels_zone = timezone('Europe/Brussels')
 l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
+def mk_key(t, tilt, azimut):
+    return '{:02}{:02}{:02}{:02}{:02}'.format( t.month,t.day,t.hour, tilt,azimut)
+
 
 def make_radiation_table(db, tmy):
     """

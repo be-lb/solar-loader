@@ -1,2 +1,2 @@
 
-DROP TABLE IF EXISTS "result";
+DROP TABLE IF EXISTS {results.table};
