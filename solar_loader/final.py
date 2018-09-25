@@ -138,12 +138,12 @@ def process_tasks(roof_geometry, db, executor):
                 get_triangle_area(geom),
             ))
 
-    for t in triangles:
-        # print('Trinagle {:.2f} {:.2f} {:.2f}'.format(
-        #     t.azimuth,
-        #     t.tilt,
-        #     t.area,
-        # ))
+    # for t in triangles:
+    # print('Trinagle {:.2f} {:.2f} {:.2f}'.format(
+    #     t.azimuth,
+    #     t.tilt,
+    #     t.area,
+    # ))
     tasks = [make_task(day, tr) for day, tr in it.product(days, triangles)]
 
     return map(lambda t: t(db, executor), tasks)
