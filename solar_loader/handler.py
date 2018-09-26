@@ -14,6 +14,7 @@
 #
 
 from django.http import JsonResponse, Http404, HttpResponseBadRequest
+from django.shortcuts import get_object_or_404
 from django.conf import settings
 from psycopg2.extensions import AsIs
 from functools import reduce
@@ -23,6 +24,7 @@ from .tmy import TMY
 from .lingua import make_feature_collection, rows_with_geom, shape_to_feature
 from .roof import Roof
 from .compute import get_roof_area, get_roof_tilt, get_roof_azimuth
+from .models import SolarSim
 
 import logging
 logger = logging.getLogger(__name__)
@@ -196,3 +198,8 @@ def get_spatial_ref_key(request, longitude, latitude):
         raise Http404('coordinate didnt match a spatial reference')
 
     return JsonResponse(dict(capakey=capakey_out(capakey)))
+
+
+def get_solar_sim(request):
+    solar_sim = get_object_or_404(SolarSim, current=True)
+    return JsonResponse(solar_sim.as_dict())
