@@ -24,6 +24,13 @@ class GeometryMissingDimension(GeometryError):
     pass
 
 
+np_axis = {
+    'x': np.array([1, 0, 0]),
+    'y': np.array([0, 1, 0]),
+    'z': np.array([0, 0, 1]),
+}
+
+
 def vec2_dist(a, b):
     """returns the distance between 2d vectors"""
     xs = b[0] - a[0]
@@ -79,17 +86,22 @@ def get_centroid(arr):
 
 
 def get_triangle_normal(t):
-    """returns normal vector of a records.Triangle
-
-    see https://en.wikipedia.org/wiki/Cross_product
-    TODO est un pbm si z est négatif ? (si oui faut inverser càd dire faire -1)
+    """A normal vector for a given Triangle t
+    ( see https://en.wikipedia.org/wiki/Cross_product )
     """
     a = np.cross(
         t.b - t.a,
-        t.c - t.a,
+        t.c - t.b,
     )
+
+    if a[2] < 0:
+        a = a * -1
+
     return a
 
+
+# np.cross
+# np.dot
 
 def get_triangle_azimut(t):
     """
@@ -103,6 +115,8 @@ def get_triangle_azimut(t):
     else:
         return np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
 
+        # calculer en 2D
+
 
 def get_triangle_inclination(t):
     """
@@ -113,7 +127,11 @@ def get_triangle_inclination(t):
     if norm[0] == 0 and norm[1] == 0:
         return 0
     else:
-        return np.rad2deg(angle_between(np.array([0, 0, 1]), norm))
+        ret = np.rad2deg(angle_between(np.array([0, 0, 1]), norm))
+        if ret > 90:
+            return 360 - ret
+        else:
+            return ret
 
 
 def get_triangle_center(t):
@@ -235,9 +253,31 @@ def angle_between(v1, v2):
     >>> angle_between((1, 0, 0), (-1, 0, 0))
     3.141592653589793
     """
-    v1_u = unit_vector(np.array(v1))
-    v2_u = unit_vector(np.array(v2))
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    v1 = np.array(v1)
+    v2 = np.array(v2)
+
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+
+    dot_v1u_v2u = np.dot(v1_u, v2_u)
+    cross_v1_v2 = np.cross(v1, v2)
+
+    arccos = np.arccos(np.clip(dot_v1u_v2u, -1.0, 1.0))
+
+    if cross_v1_v2.ndim == 0:
+        if cross_v1_v2 >= 0:
+            return arccos
+        else:
+            return (2 * math.pi) - arccos
+    elif arccos == 0:
+        return arccos
+    for axis in ['z', 'y', 'z']:
+        dot_with_axis = np.dot(cross_v1_v2, np_axis[axis])
+        if dot_with_axis > 0:
+            return arccos
+        elif dot_with_axis < 0:
+            return (2 * math.pi) - arccos
+    return arccos
 
 
 def foreach_coords(f):

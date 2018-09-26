@@ -8,11 +8,8 @@ import math
 
 SERIE_COUNT = 12
 
-angle_30 = math.pi / 6
-angle_45 = math.pi / 4
 angle_60 = math.pi / 3
 angle_90 = math.pi / 2
-angle_180 = math.pi
 
 
 def get_rands(n, f):
@@ -78,6 +75,7 @@ class TestGeom(unittest.TestCase):
         """Test for the function geom.norm"""
         for a, b, c, res_unit in [
             [(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)],
+            [(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)],
             [(0, 12, 0), (0, 0, 1), (0, 0, 0), (1, 0, 0)],
             [(0, 0, 0), (11, 0, 0), (0, 0, 1), (0, -1, 0)],
             [(1, 0, 0), (0, 1, 0), (0, 0, 1), (
@@ -90,16 +88,21 @@ class TestGeom(unittest.TestCase):
 
     def test_get_triangle_azimut(self):
         """Test for the function geom.get_triangle_azimut"""
-        for a, b, c, azim in [
-            [(0, 0, 0), (0, 0, 1), (1, 0, 0), 0],
-            [(0, 0, 0), (0, 0, 1), (0, 1, 0), 90],
-            [(0, 0, 0), (0, 0, 1), (-1, 0, 0), 180],
-            # [(0, -1, 0), (0, 0, 0), (0, 0, 1), 270],
-            [(0, 0, 0), (0, -1, 0), (0, 0, 1), 270],
-            [(0, 0, 0), (0, 0, 1), (0, -1, 0), 270],
+        for a, b, c, azim, delta in [
+            [(0, 0, 0), (0, 0, 1), (1, 0, 0), 0, None],
+            [(0, 0, 0), (0, 0, 1), (0, 1, 0), 90, 0.01],
+            [(0, 0, 0), (0, 0, 1), (-1, 0, 0), 180, None],
+            [(0, -1, 0), (0, 0, 0), (0, 0, 1), 270, 0.01],
+            [(0, 0, 0), (0, -1, 0), (0, 0, 1), 90, 0.01],
+            [(0, 0, 0), (0, 0, 1), (0, -1, 0), 270, 0.01],
+            [(1, 0, 0), (0, 1, 0), (0, 0, 1), 315, None],
+            [(0, 1, 0), (-1, 0, 0), (0, 0, 1), 45, None],
+            [(-1, 0, 0), (0, -1, 0), (0, 0, 1), 135, None],
+            [(0, -1, 0), (1, 0, 0), (0, 0, 1), 225, None],
         ]:
             t = Triangle(np.array(a), np.array(b), np.array(c))
-            self.assertEqual(geom.get_triangle_azimut(t), azim)
+            self.assertAlmostEqual(
+                geom.get_triangle_azimut(t), azim, delta=delta)
 
     def test_triangle_inclination(self):
         """Test for get_triangle_inclination"""
@@ -110,8 +113,18 @@ class TestGeom(unittest.TestCase):
             [(0, 0, 0.00001), (1, 0, 0), (0, 1, 0), 0, 0.001],
             [(0, 0, 0), (1, 0, 0), (0, 1, 0), 0, None],
             [(0, 0, 0), (math.sqrt(2), 0, 1), (0, math.sqrt(2), 1), 45, None],
-            [(0, 0, 0), (0, 0, 1), (0, 1, 0), 90, None],
-            [(0, 0, 0), (1, 0, math.tan(angle_60)), (1, 1, math.tan(angle_60)), 60, None]
+            [(0, 0, 0), (0, 0, 1), (0, 1, 0), 90, 0.01],
+            [
+                (0, 0, 0),
+                (1, 0, math.tan(angle_60)),
+                (1, 1, math.tan(angle_60)), 60, None
+            ],
+            [(1, 0, 0), (0, 1, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
+            [(0, 1, 0), (-1, 0, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
+            [(-1, 0, 0), (0, -1, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
+            [(0, -1, 0), (1, 0, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
+
+
         ]:
             t = Triangle(np.array(a), np.array(b), np.array(c))
             self.assertAlmostEqual(
@@ -160,21 +173,24 @@ class TestGeom(unittest.TestCase):
 
     def test_angle_between(self):
         """Test for the function geom.angle_between"""
+        self.assertAlmostEqual(
+            geom.angle_between([1, 0, 0], [0, 1, 0]), angle_90, delta=0.01)
+        self.assertEqual(geom.angle_between([1, 0, 0], [1, 0, 0]), 0.0)
         self.assertEqual(
-            geom.angle_between((1, 0, 0), (0, 1, 0)), angle_90)
-        self.assertEqual(geom.angle_between((1, 0, 0), (1, 0, 0)), 0.0)
-        self.assertEqual(
-            geom.angle_between((1, 0, 0), (-1, 0, 0)), angle_180)
+            np.rad2deg(geom.angle_between([1, 0, 0], [-1, 0, 0])), 180)
         self.assertAlmostEqual(
-            geom.angle_between((1, 0, 1), (0, 0, 1)), angle_45)
+            np.rad2deg(geom.angle_between([1, 0, 1], [0, 0, 1])), 315)
         self.assertAlmostEqual(
-            geom.angle_between((1, 0, 0), (1, 0, math.tan(angle_60))), angle_60)
+            np.rad2deg(
+                geom.angle_between([1, 0, 0], [1, 0, math.tan(angle_60)])),
+            300)
         self.assertAlmostEqual(
-            geom.angle_between((-1, 0, 0), (0, 1, 0)), math.pi * 3 / 2)
+            geom.angle_between([-1, 0, 0], [0, 1, 0]),
+            math.pi * 3 / 2, delta=0.01)
         self.assertAlmostEqual(
-            geom.angle_between((0, 1, 0), (-1, 0, 0)), math.pi / 2)
+            np.rad2deg(geom.angle_between([0, 1, 0], [-1, 0, 0])), 90)
         self.assertAlmostEqual(
-            geom.angle_between((0, -1, 0), (0, 0, 1)), math.pi * 3 / 2)
+            np.rad2deg(geom.angle_between([0, -1, 0], [0, 0, 1])), 90)
 
 
 if __name__ == '__main__':
