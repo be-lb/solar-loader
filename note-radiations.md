@@ -55,12 +55,12 @@ user    78m59.936s
 sys     5m37.568s
 ```
 
-That is 423 seconds / 512 roofs, 0.82 seconds per roof polygon. Which is still a 330 hours (9 days and a half) run for the whole dataset, but it comes back in the scope of the current project's timeline. On the cost side of things, we're then looking at an estimate of 
+That is 423 seconds / 512 roofs, 0.82 seconds per roof polygon. Which is still a 330 hours (9 days and a half) run for the whole dataset, but it comes back in the scope of the current project's timeline. On the cost side of things, we're then looking at an estimate of
 
 ```python
 (0.952 + 3 * 0.238) * 330
 #>> 549.78
-``` 
+```
 
 with the very same setup.
 
@@ -68,7 +68,7 @@ If we go with a more abstract cpu time per roof, we're back to our average of 40
 
 ```python
 total_time = 40 * 1000000 / 3600
-cpu_cost = 0.952 / 32 
+cpu_cost = 0.952 / 32
 cpu_cost * total_time
 #>> 330.55555555555554
 ```
@@ -87,19 +87,80 @@ Both should be Debian 9
 
 #### solar-loader
 
-The compute part
-- clone the repo
-- create a virtualenv with python 3
-- install the requirements
-- configure the module
-- configure the environment
+1. Install dependencies
+
+  ```console
+  $ apt install git python3-pip python3-dev libgeos-dev libxml2-dev libxslt-dev
+  $ pip3 install virtenv
+  ```
+
+2. Clone the repository
+
+  ```console
+  $ git clone https://github.com/be-lb/solar-loader.git
+  ```
+3. Create a virtualenv with python 3 and activate it
+
+  ```console
+  $ virtualenv venv
+  $ source venv/bin/activate
+  ```
+
+4. Install the requirements in the virtualenv
+
+  ```console
+  $ virtualenv venv
+  $ source venv/bin/activate
+  ```
+
+5. Install the requirements
+
+  ```console
+  (venv) $ cd
+  (venv) $ pip install -r requirements.txt
+  ```
+
+6. Install the module
+
+```console
+(venv) $ python setup.py install
+```
+
+- Créer le fichier settings-dev.py
+
+- Configure the module
+
+```console
+(venv) $ export DJANGO_SETTINGS_MODULE=settings-dev
+(venv) $ export PYTHONPATH=/var/solar/solar-loader/solar_loader
+```
+
+Et ce devrait marcher (mais non :())
 
 snapshot
 
 ### Postgis
 
-- Follow instructions from lot-1 to get all of the dataset
-- configure pg
+The install has been tested on PostgreSQL 9.6 / PostGIS 2.3.
+
+
+1. Install PostgreSQL (min 9.6) / PostGIS (min 2.3)
+
+  ```console
+  $ apt install postgresql-9.6 postgis-2.3 postgresql-9.6-postgis-scripts postgresql-client
+  ```
+
+2. Follow instructions from lot-1/db to get all of the dataset
+
+  ```console
+  user:~$ sudo su - postgres
+  postgres:~$ psql -f  lot-1-master/db/sql/create-database.sql
+  postgres:~$ exit
+  user:~$ psql  -h localhost -U solar -f path-to-lot-1/db/sql/configure-solar.sql solar
+  user:/path-to-lot-1/db$ ./deploy.sh localhost solar solar plokplok /path-to-solar-data/
+  ```
+
+3. configure pg
   - listen to all
   - many tweaks
 
@@ -109,5 +170,3 @@ snapshot
 
 
 ### results
-
-
