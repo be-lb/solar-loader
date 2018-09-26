@@ -19,6 +19,6 @@
 -- );
 
 
-INSERT INTO "result" 
-    (roof_id, irradiance)
+INSERT INTO  {results.table} 
+    ({results.roof_id}, {results.irradiance})
     VALUES (%s, %s);

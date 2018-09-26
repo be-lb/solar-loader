@@ -9,19 +9,15 @@ class GeometryError(Exception):
     pass
 
 
-class GeometryTypeError(GeometryError):
-    """
-    NOT_USED
-    """
-    def __init__(self, gt, expected=None):
-        if expected is not None:
-            self.message = 'Expected "{}", got "{}"'.format(expected, gt)
-        else:
-            self.message = '"{}" not supported'.format(gt)
-
-
 class GeometryMissingDimension(GeometryError):
     pass
+
+
+np_axis = {
+    'x': np.array([1, 0, 0]),
+    'y': np.array([0, 1, 0]),
+    'z': np.array([0, 0, 1]),
+}
 
 
 def vec2_dist(a, b):
@@ -33,22 +29,9 @@ def vec2_dist(a, b):
 
 def vec_dist(p, q):
     """
-    returns the distance between numpy vectors
-    NOT_USED
+    returns the distance between numpy vectors (used for testing)
     """
     return math.sqrt(np.sum(np.square(p - q)))
-
-
-def vec3_add(a, b):
-    """
-    Addition between 3d vectors
-    NOT_USED
-    """
-    return [
-        a[0] + b[0],
-        a[1] + b[1],
-        a[2] + b[2],
-    ]
 
 
 def rotation_matrix(axis, theta):
@@ -67,27 +50,18 @@ def rotation_matrix(axis, theta):
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-def get_centroid(arr):
-    """
-    Get the centroid
-    NOT_USED
-    """
-    length = arr.shape[0]
-    sum_x = np.sum(arr[:, 0])
-    sum_y = np.sum(arr[:, 1])
-    return [sum_x / length, sum_y / length]
-
-
 def get_triangle_normal(t):
-    """returns normal vector of a records.Triangle
-
-    see https://en.wikipedia.org/wiki/Cross_product
-    TODO est un pbm si z est négatif ? (si oui faut inverser càd dire faire -1)
+    """A normal vector for a given Triangle t
+    ( see https://en.wikipedia.org/wiki/Cross_product )
     """
     a = np.cross(
         t.b - t.a,
-        t.c - t.a,
+        t.c - t.b,
     )
+
+    if a[2] < 0:
+        a = a * -1
+
     return a
 
 
@@ -103,6 +77,8 @@ def get_triangle_azimut(t):
     else:
         return np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
 
+        # calculer en 2D
+
 
 def get_triangle_inclination(t):
     """
@@ -113,7 +89,11 @@ def get_triangle_inclination(t):
     if norm[0] == 0 and norm[1] == 0:
         return 0
     else:
-        return np.rad2deg(angle_between(np.array([0, 0, 1]), norm))
+        ret = np.rad2deg(angle_between(np.array([0, 0, 1]), norm))
+        if ret > 90:
+            return 360 - ret
+        else:
+            return ret
 
 
 def get_triangle_center(t):
@@ -154,14 +134,6 @@ def polygon_drop_z(poly):
     return geometry.Polygon([coord[:2] for coord in poly.exterior.coords]), [
         coord[2] for coord in poly.exterior.coords
     ]
-
-
-def polygon_add_z(poly, zs):
-    """
-    NOT_USED
-    """
-    return geometry.Polygon([(coord[0], coord[1], zs[i])
-                             for i, coord in enumerate(poly.exterior.coords)])
 
 
 def multipolygon_drop_z(mpoly):
@@ -235,9 +207,31 @@ def angle_between(v1, v2):
     >>> angle_between((1, 0, 0), (-1, 0, 0))
     3.141592653589793
     """
-    v1_u = unit_vector(np.array(v1))
-    v2_u = unit_vector(np.array(v2))
-    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    v1 = np.array(v1)
+    v2 = np.array(v2)
+
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+
+    dot_v1u_v2u = np.dot(v1_u, v2_u)
+    cross_v1_v2 = np.cross(v1, v2)
+
+    arccos = np.arccos(np.clip(dot_v1u_v2u, -1.0, 1.0))
+
+    if cross_v1_v2.ndim == 0:
+        if cross_v1_v2 >= 0:
+            return arccos
+        else:
+            return (2 * math.pi) - arccos
+    elif arccos == 0:
+        return arccos
+    for axis in ['z', 'y', 'z']:
+        dot_with_axis = np.dot(cross_v1_v2, np_axis[axis])
+        if dot_with_axis > 0:
+            return arccos
+        elif dot_with_axis < 0:
+            return (2 * math.pi) - arccos
+    return arccos
 
 
 def foreach_coords(f):
@@ -257,48 +251,3 @@ def reduce_coords(f, ini):
 
 def op_coord(op, i, base, coord):
     return op(base, coord[i])
-
-
-positive_infinity = float('inf')
-negative_infinity = float('-inf')
-
-poly_min_x = reduce_coords(partial(op_coord, min, 0), positive_infinity)
-poly_min_y = reduce_coords(partial(op_coord, min, 1), positive_infinity)
-poly_min_z = reduce_coords(partial(op_coord, min, 2), positive_infinity)
-poly_max_x = reduce_coords(partial(op_coord, max, 0), negative_infinity)
-poly_max_y = reduce_coords(partial(op_coord, max, 1), negative_infinity)
-poly_max_z = reduce_coords(partial(op_coord, max, 2), negative_infinity)
-
-
-def poly_bbox(poly):
-    """
-    NOT_USED
-    """
-    return (
-        poly_min_x(poly),
-        poly_min_y(poly),
-        poly_min_z(poly),
-        poly_max_x(poly),
-        poly_max_y(poly),
-        poly_max_z(poly),
-    )
-
-
-def multipoly_bbox(mp):
-    """
-    NOT_USED
-    """
-    return (
-        reduce(lambda acc, poly: min(acc, poly_min_x(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: min(acc, poly_min_y(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: min(acc, poly_min_z(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_x(poly)), mp,
-               negative_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_y(poly)), mp,
-               negative_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_z(poly)), mp,
-               negative_infinity),
-    )

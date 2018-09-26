@@ -4,11 +4,11 @@ import attr
 import django
 django.setup()
 
-from .celery import compute_for_all, compute_radiation_for_parcel
+from .final import compute_for_all, display_diff
 from .store import Data
 from .tmy import TMY
 from .results import (make_radiation_file, make_radiation_table, make_results,
-                      m_profile, m_incidence, m_profile_day, m_profile_pvlib,
+                      m_profile, m_profile_day, m_profile_pvlib,
                       compare_sunpos)
 from .time import start_counter, summarize_times
 from .compute import get_results_roof
@@ -71,14 +71,6 @@ def pvlib(filename, sample_rate):
 
 @cli.command()
 @click.argument('filename', type=str, required=True)
-def incidence(filename):
-    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-    tmy = TMY(settings.SOLAR_TMY)
-    m_incidence(data_store, tmy, filename)
-
-
-@cli.command()
-@click.argument('filename', type=str, required=True)
 def day(filename):
     data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
     tmy = TMY(settings.SOLAR_TMY)
@@ -87,11 +79,14 @@ def day(filename):
 
 @cli.command()
 def sunpos():
+    tmy = TMY(settings.SOLAR_TMY)
     compare_sunpos(tmy)
 
 
 @cli.command()
 def radiations_table():
+    data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    tmy = TMY(settings.SOLAR_TMY)
     make_radiation_table(data_store, tmy)
 
 
@@ -104,16 +99,22 @@ def radiations_file(filename, year):
     make_radiation_file(data_store, tmy, filename, year)
 
 
-@cli.command()
-@click.argument('capakey', type=str, required=True)
-def rad(capakey):
-    compute_radiation_for_parcel(capakey)
+# @cli.command()
+# @click.argument('capakey', type=str, required=True)
+# def rad(capakey):
+#     compute_radiation_for_parcel(capakey)
 
 
 @cli.command()
 @click.option('--limit', type=int)
-def all_rad(limit):
-    compute_for_all(limit)
+@click.option('--offset', type=int)
+def all_rad(limit, offset):
+    compute_for_all(limit, offset)
+
+
+@cli.command()
+def diff():
+    display_diff()
 
 
 def main():
