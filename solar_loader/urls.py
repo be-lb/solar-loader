@@ -16,10 +16,10 @@
 
 from django.conf.urls import url
 from .handler import get_roofs, get_settings, get_geom, get_3d,\
-    get_spatial_ref_key
+    get_spatial_ref_key, get_solar_sim
 
 urlpatterns = [
-    url(r'^solar/settings/$', get_settings, name='geodata.solar.settings'),
+    url(r'^solar/constants/$', get_solar_sim, name='geodata.solar.config'),
     url(r'^solar/geom/for/(?P<capakey>.+)/$',
         get_geom,
         name='geodata.solar.get_geom'),
