@@ -34,9 +34,6 @@ class TestGeom(unittest.TestCase):
                 np.array((0.5, 2.5))), math.sqrt(6.25)
             )  # math.sqrt(6.25))
 
-    def test_vec3_add(self):
-        # vec3_add is not used -> not tested
-        pass
 
     def test_rotation_matrix(self):
         """Test the function geom.rotation_matrix"""
@@ -67,9 +64,6 @@ class TestGeom(unittest.TestCase):
             ])
             np.testing.assert_array_almost_equal(r, check)
 
-    def test_get_centroid(self):
-        # get_centroid is not used -> not tested
-        pass
 
     def test_get_triangle_normal(self):
         """Test for the function geom.norm"""

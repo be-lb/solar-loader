@@ -9,17 +9,6 @@ class GeometryError(Exception):
     pass
 
 
-class GeometryTypeError(GeometryError):
-    """
-    NOT_USED
-    """
-    def __init__(self, gt, expected=None):
-        if expected is not None:
-            self.message = 'Expected "{}", got "{}"'.format(expected, gt)
-        else:
-            self.message = '"{}" not supported'.format(gt)
-
-
 class GeometryMissingDimension(GeometryError):
     pass
 
@@ -40,22 +29,9 @@ def vec2_dist(a, b):
 
 def vec_dist(p, q):
     """
-    returns the distance between numpy vectors
-    NOT_USED
+    returns the distance between numpy vectors (used for testing)
     """
     return math.sqrt(np.sum(np.square(p - q)))
-
-
-def vec3_add(a, b):
-    """
-    Addition between 3d vectors
-    NOT_USED
-    """
-    return [
-        a[0] + b[0],
-        a[1] + b[1],
-        a[2] + b[2],
-    ]
 
 
 def rotation_matrix(axis, theta):
@@ -74,17 +50,6 @@ def rotation_matrix(axis, theta):
                      [2 * (bd + ac), 2 * (cd - ab), aa + dd - bb - cc]])
 
 
-def get_centroid(arr):
-    """
-    Get the centroid
-    NOT_USED
-    """
-    length = arr.shape[0]
-    sum_x = np.sum(arr[:, 0])
-    sum_y = np.sum(arr[:, 1])
-    return [sum_x / length, sum_y / length]
-
-
 def get_triangle_normal(t):
     """A normal vector for a given Triangle t
     ( see https://en.wikipedia.org/wiki/Cross_product )
@@ -99,9 +64,6 @@ def get_triangle_normal(t):
 
     return a
 
-
-# np.cross
-# np.dot
 
 def get_triangle_azimut(t):
     """
@@ -172,14 +134,6 @@ def polygon_drop_z(poly):
     return geometry.Polygon([coord[:2] for coord in poly.exterior.coords]), [
         coord[2] for coord in poly.exterior.coords
     ]
-
-
-def polygon_add_z(poly, zs):
-    """
-    NOT_USED
-    """
-    return geometry.Polygon([(coord[0], coord[1], zs[i])
-                             for i, coord in enumerate(poly.exterior.coords)])
 
 
 def multipolygon_drop_z(mpoly):
@@ -297,48 +251,3 @@ def reduce_coords(f, ini):
 
 def op_coord(op, i, base, coord):
     return op(base, coord[i])
-
-
-positive_infinity = float('inf')
-negative_infinity = float('-inf')
-
-poly_min_x = reduce_coords(partial(op_coord, min, 0), positive_infinity)
-poly_min_y = reduce_coords(partial(op_coord, min, 1), positive_infinity)
-poly_min_z = reduce_coords(partial(op_coord, min, 2), positive_infinity)
-poly_max_x = reduce_coords(partial(op_coord, max, 0), negative_infinity)
-poly_max_y = reduce_coords(partial(op_coord, max, 1), negative_infinity)
-poly_max_z = reduce_coords(partial(op_coord, max, 2), negative_infinity)
-
-
-def poly_bbox(poly):
-    """
-    NOT_USED
-    """
-    return (
-        poly_min_x(poly),
-        poly_min_y(poly),
-        poly_min_z(poly),
-        poly_max_x(poly),
-        poly_max_y(poly),
-        poly_max_z(poly),
-    )
-
-
-def multipoly_bbox(mp):
-    """
-    NOT_USED
-    """
-    return (
-        reduce(lambda acc, poly: min(acc, poly_min_x(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: min(acc, poly_min_y(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: min(acc, poly_min_z(poly)), mp,
-               positive_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_x(poly)), mp,
-               negative_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_y(poly)), mp,
-               negative_infinity),
-        reduce(lambda acc, poly: max(acc, poly_max_z(poly)), mp,
-               negative_infinity),
-    )
