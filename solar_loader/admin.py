@@ -5,10 +5,17 @@ from .models import SolarSim, AdjustDescription
 
 class SolarSimAdmin(admin.ModelAdmin):
     list_display = (
-        'id',
+        'name',
         'current',
     )
+    list_editable = ('current',)
     fieldsets = (
+        ('Version', {
+            'fields': (
+                'name',
+                'current',
+            ),
+        }),
         ('PV installation', {
             'fields': (
                 'max_power',

@@ -155,6 +155,7 @@ def self_production_default():
     }
 
 
+
 class SolarSim(models.Model):
     """
     A model to store and adjust solar-sim module constants
@@ -162,6 +163,7 @@ class SolarSim(models.Model):
     id = models.AutoField(primary_key=True)
 
     # we'll serve to maintain different configs and serve just one
+    name = models.CharField(max_length=128, default='(none)')
     current = models.BooleanField(default=False)
 
     # Environmental
@@ -342,6 +344,9 @@ class SolarSim(models.Model):
             'thermic_production':
             self.thermic_production,
         }
+
+
+
 
 
 class AdjustDescription(models.Model):
