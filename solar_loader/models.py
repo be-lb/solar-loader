@@ -165,7 +165,10 @@ class SolarSim(models.Model):
     current = models.BooleanField(default=False)
 
     # Environmental
-    co2_emissions_by_kwh = models.FloatField(default=0.456)
+    co2_emissions_by_kwh = models.FloatField(
+        default=0.456,
+        help_text='CO2 emissions by kWh of electric energy, in kg/kWh'
+    )
     energetic_cost_factor_belgium = models.FloatField(default=2500)
     energetic_cost_factor_europe = models.FloatField(default=2600)
     energetic_cost_factor_china = models.FloatField(default=2750)
