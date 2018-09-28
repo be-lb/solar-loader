@@ -24,7 +24,7 @@ from .tmy import TMY
 from .lingua import make_feature_collection, rows_with_geom, shape_to_feature
 from .roof import Roof
 from .compute import get_roof_area, get_roof_tilt, get_roof_azimuth
-from .models import SolarSim
+from .models import SolarSim, AdjustDescription
 
 import logging
 logger = logging.getLogger(__name__)
@@ -203,3 +203,11 @@ def get_spatial_ref_key(request, longitude, latitude):
 def get_solar_sim(request):
     solar_sim = get_object_or_404(SolarSim, current=True)
     return JsonResponse(solar_sim.as_dict())
+
+
+def get_descriptions(request):
+    data = dict()
+    for desc in AdjustDescription.objects.all():
+        data[desc.widget_key] = desc.description.to_dict()
+
+    return JsonResponse(data)
