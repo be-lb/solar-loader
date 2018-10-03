@@ -23,6 +23,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--batch-size',
             dest='batch_size',
+            type=int,
             default=124,
             help='Size of a batch to process',
         )

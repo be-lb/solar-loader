@@ -174,11 +174,16 @@ def compute_radiation_for_roof_batch(row):
 
 
 def compute_batches(batch_size):
-    db = Data(settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES)
     with ProcessPoolExecutor() as executor:
         while True:
+            db = Data(
+                settings.SOLAR_CONNECTION_RESULTS,
+                settings.SOLAR_TABLES,
+                reset=True,
+            )
             rows = list(
                 rows_with_geom(db, 'select_result_batch', (batch_size, ), 1))
+
             if 0 == len(rows):
                 break
             for _ in executor.map(
