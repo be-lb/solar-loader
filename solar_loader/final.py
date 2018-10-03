@@ -155,19 +155,21 @@ def compute_radiation_for_roof_batch(row):
     area = get_roof_area(geom)
     start_time = now()
     db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES, reset=True)
-    db.exec('insert_result',
-            (0.0, area, STATUS_PENDING, start_time, start_time, id))
+    res = Data(
+        settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES, reset=True)
+    res.exec('insert_result',
+             (0.0, area, STATUS_PENDING, start_time, start_time, id))
     try:
         with ThreadPoolExecutor() as executor:
             total_rad = sum(process_tasks(geom, db, executor))
 
-        db.exec('insert_result',
-                (total_rad, area, STATUS_DONE, start_time, now(), id))
+        res.exec('insert_result',
+                 (total_rad, area, STATUS_DONE, start_time, now(), id))
         return id, STATUS_DONE
     except Exception as ex:
         logger.error('Error:compute({})\n{}'.format(type(ex), ex))
-        db.exec('insert_result',
-                (0.0, area, STATUS_FAILED, start_time, now(), id))
+        res.exec('insert_result',
+                 (0.0, area, STATUS_FAILED, start_time, now(), id))
         return id, STATUS_FAILED
 
 
