@@ -117,8 +117,8 @@ def make_task(day, tr):
         if with_shadows:
             get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
             for (ti, sunvec), row_intersect in zip(
-                    time_and_vec, executor.map(get_intersections,
-                                               time_and_vec)):
+                    time_and_vec,
+                    executor.map(get_intersections, time_and_vec, timeout=60)):
                 exposed_area = get_exposed_area(tr, sunvec, row_intersect)
                 rad += compute_radiation(exposed_area, ti, tr)
 

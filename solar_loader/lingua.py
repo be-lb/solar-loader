@@ -13,14 +13,13 @@ def rows_with_geom(db, select, params, geom_index):
         try:
             row[geom_index] = wkt.loads(row[geom_index])
         except Exception as ex:
-            logger.error('could not read "{}"\n{}'.format(
-                row[geom_index], ex))
+            logger.error('could not read "{}"\n{}'.format(row[geom_index], ex))
             continue
         yield row
 
 
 def coord_to_wkt(c):
-    return '{} {} {}'.format(*c)
+    return '{:.2f} {:.2f} {:.2f}'.format(*c)
 
 
 def triangle_to_wkt(a, b, c):
