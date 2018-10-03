@@ -1,11 +1,12 @@
 import itertools as it
 from functools import partial
+import logging
 from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
-from time import perf_counter
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
+from .time import now
 from .store import Data
 from .tmy import TMY
 from .records import GisTriangle, Triangle
@@ -26,9 +27,9 @@ from .rdiso import get_rdiso5
 from .radiation import compute_gk
 from .rad5 import rad5
 
+logger = logging.getLogger(__name__)
+
 django.setup()
-# db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-results_db = Data(settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES)
 tmy = TMY(settings.SOLAR_TMY)
 
 sample_rate = getattr(settings, 'SOLAR_SAMPLE_RATE', 14)
@@ -39,6 +40,11 @@ optimal_tilt = getattr(settings, 'SOLAR_OPTIMAL_TILT', 40)
 
 print('sample_rate: {}'.format(sample_rate))
 print('with_shadows: {}'.format(with_shadows))
+
+STATUS_TODO = 0
+STATUS_PENDING = 1
+STATUS_DONE = 2
+STATUS_FAILED = 3
 
 
 def round5(f):
@@ -98,13 +104,6 @@ def query_intersections(db, triangle, sunvec):
 
 
 def make_task(day, tr):
-    # sunpos_s = [get_sun_position(tr.center, ti) for ti in day]
-    # sunvec_s = [
-    #     unit_vector(
-    #         get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth)
-    #         - tr.center) for sunpos in sunpos_s
-    # ]
-
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
@@ -145,72 +144,41 @@ def process_tasks(roof_geometry, db, executor):
                 get_triangle_area(geom),
             ))
 
-    # for t in triangles:
-    # print('Trinagle {:.2f} {:.2f} {:.2f}'.format(
-    #     t.azimuth,
-    #     t.tilt,
-    #     t.area,
-    # ))
     tasks = [make_task(day, tr) for day, tr in it.product(days, triangles)]
 
     return map(lambda t: t(db, executor), tasks)
 
 
-def compute_radiation_for_roof(row):
-    print('compute_radiation_for_roof({})'.format(row[0]))
+def compute_radiation_for_roof_batch(row):
     id = row[0]
     geom = row[1]
     area = get_roof_area(geom)
+    start_time = now()
+    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES, reset=True)
+    db.exec('insert_result',
+            (0.0, area, STATUS_PENDING, start_time, start_time, id))
+    try:
+        with ThreadPoolExecutor() as executor:
+            total_rad = sum(process_tasks(geom, db, executor))
+
+        db.exec('insert_result',
+                (total_rad, area, STATUS_DONE, start_time, now(), id))
+        return id, STATUS_DONE
+    except Exception as ex:
+        logger.error('Error:compute({})\n{}'.format(type(ex), ex))
+        db.exec('insert_result',
+                (0.0, area, STATUS_FAILED, start_time, now(), id))
+        return id, STATUS_FAILED
+
+
+def compute_batches(batch_size):
     db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-
-    with ThreadPoolExecutor() as executor:
-        total_rad = sum(process_tasks(geom, db, executor))
-
-    return id, total_rad / area
-
-
-def insert_result(r):
-    print('insert_result({})'.format(r))
-    results_db.exec('insert_result', r)
-    return r[0]
-
-
-def compute_for_all(limit, offset=0):
-    # TODO a parameter
-    # results_db.exec('drop_result')
-    # results_db.exec('create_result')
-    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-    if limit is not None:
-        rows = rows_with_geom(db, 'select_roof_all_limit', (
-            limit,
-            offset,
-        ), 1)
-    else:
-        rows = rows_with_geom(db, 'select_roof_all', (offset, ), 1)
-
     with ProcessPoolExecutor() as executor:
-        for roof_id, rad in executor.map(
-                compute_radiation_for_roof, rows, chunksize=4):
-            insert_result((
-                roof_id,
-                rad,
-            ))
-
-
-def display_diff():
-    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
-    print('id | area | base(rad5) | result | base - result')
-    for row in rows_with_geom(db, 'select_shadows', (), 3):
-        id = row[0]
-        shadowed = float(row[1])
-        base = float(row[2])
-        geom = row[3]
-        area = get_roof_area(geom)
-        base = base / area
-        print('{} | {:.2f} | {} | {} | {}'.format(
-            id,
-            area,
-            round(base / 1000),
-            round(shadowed / 1000),
-            round((base - shadowed) / 1000),
-        ))
+        while True:
+            rows = list(
+                rows_with_geom(db, 'select_result_batch', (batch_size, ), 1))
+            if 0 == len(rows):
+                break
+            for _ in executor.map(
+                    compute_radiation_for_roof_batch, rows, chunksize=4):
+                pass

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from pytz import timezone
+from pytz import timezone, utc
 from time import perf_counter
 from collections import deque, namedtuple
 import numpy as np
@@ -23,6 +23,10 @@ class TimeCounter:
 
 def start_counter():
     times_queue.clear()
+
+
+def now():
+    return datetime.now(utc)
 
 
 def summarize_times():
