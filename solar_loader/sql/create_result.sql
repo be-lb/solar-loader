@@ -7,6 +7,7 @@ CREATE TABLE  {results.table}(
     irradiance      decimal DEFAULT 0.0,
     area            decimal DEFAULT 0.0,
     compute_status  integer DEFAULT 0,
+    compute_node    character varying(32),
     compute_start   timestamp with time zone,
     compute_end     timestamp with time zone
 );

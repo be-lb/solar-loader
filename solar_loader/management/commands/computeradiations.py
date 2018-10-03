@@ -21,6 +21,7 @@ from solar_loader.final import compute_batches
 class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
+            '-bs',
             '--batch-size',
             dest='batch_size',
             type=int,
@@ -28,6 +29,12 @@ class Command(BaseCommand):
             help='Size of a batch to process',
         )
 
+        parser.add_argument(
+            'node_name',
+            help='Name of this process',
+        )
+
     def handle(self, *args, **options):
         batch_size = options['batch_size']
-        compute_batches(batch_size)
+        node_name = options['node_name']
+        compute_batches(node_name, batch_size)

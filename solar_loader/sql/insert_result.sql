@@ -3,6 +3,7 @@ UPDATE  {results.table}
 SET 
     irradiance = %s,
     area = %s,
+    compute_node = %s,
     compute_status = %s,
     compute_start = %s,
     compute_end = %s

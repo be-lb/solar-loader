@@ -149,7 +149,7 @@ def process_tasks(roof_geometry, db, executor):
     return map(lambda t: t(db, executor), tasks)
 
 
-def compute_radiation_for_roof_batch(row):
+def compute_radiation_roof(node_name, row):
     id = row[0]
     geom = row[1]
     area = get_roof_area(geom)
@@ -157,23 +157,26 @@ def compute_radiation_for_roof_batch(row):
     db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES, reset=True)
     res = Data(
         settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES, reset=True)
-    res.exec('insert_result',
-             (0.0, area, STATUS_PENDING, start_time, start_time, id))
+    res.exec(
+        'insert_result',
+        (0.0, area, node_name, STATUS_PENDING, start_time, start_time, id))
     try:
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=32) as executor:
             total_rad = sum(process_tasks(geom, db, executor))
 
-        res.exec('insert_result',
-                 (total_rad, area, STATUS_DONE, start_time, now(), id))
+        res.exec(
+            'insert_result',
+            (total_rad, area, node_name, STATUS_DONE, start_time, now(), id))
         return id, STATUS_DONE
     except Exception as ex:
         logger.error('Error:compute({})\n{}'.format(type(ex), ex))
         res.exec('insert_result',
-                 (0.0, area, STATUS_FAILED, start_time, now(), id))
+                 (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
         return id, STATUS_FAILED
 
 
-def compute_batches(batch_size):
+def compute_batches(node_name, batch_size):
+
     with ProcessPoolExecutor() as executor:
         while True:
             db = Data(
@@ -186,6 +189,10 @@ def compute_batches(batch_size):
 
             if 0 == len(rows):
                 break
+
             for _ in executor.map(
-                    compute_radiation_for_roof_batch, rows, chunksize=4):
+                    partial(compute_radiation_roof, node_name),
+                    rows,
+                    chunksize=4,
+            ):
                 pass
