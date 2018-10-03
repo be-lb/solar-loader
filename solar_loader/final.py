@@ -174,7 +174,7 @@ def compute_radiation_for_roof_batch(row):
 
 
 def compute_batches(batch_size):
-    db = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+    db = Data(settings.SOLAR_CONNECTION_RESULTS, settings.SOLAR_TABLES)
     with ProcessPoolExecutor() as executor:
         while True:
             rows = list(
