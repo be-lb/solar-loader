@@ -24,5 +24,6 @@ class Command(BaseCommand):
         pass
 
     def handle(self, *args, **options):
-        data_store = Data(settings.SOLAR_CONNECTION, settings.SOLAR_TABLES)
+        data_store = Data(settings.SOLAR_CONNECTION_RESULTS,
+                          settings.SOLAR_TABLES)
         data_store.exec('create_result')
