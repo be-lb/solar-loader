@@ -85,12 +85,12 @@ Part of the setup has already been automated in lot-1, that is the building of a
 
 Both should be Debian 9
 
-#### solar-loader
+#### solar-loader - script python
 
 1. Install dependencies
 
   ```console
-  $ apt install git python3-pip python3-dev libgeos-dev libxml2-dev libxslt-dev
+  $ apt install git python3-pip python3-dev libgeos-dev libxml2-dev libxslt-dev libgdal-dev
   $ pip3 install virtenv
   ```
 
@@ -116,30 +116,34 @@ Both should be Debian 9
 5. Install the requirements
 
   ```console
-  (venv) $ cd
+  (venv) $ cd solar-loader
   (venv) $ pip install -r requirements.txt
   ```
 
 6. Install the module
 
-```console
-(venv) $ python setup.py install
-```
+  ```console
+  (venv) $ pip install -e .
+  ```
 
 - Créer le fichier settings-dev.py
 
 - Configure the module
 
-```console
-(venv) $ export DJANGO_SETTINGS_MODULE=settings-dev
-(venv) $ export PYTHONPATH=/var/solar/solar-loader/solar_loader
-```
+  ```console
+  (venv) $ export DJANGO_SETTINGS_MODULE=settings-dev
+  (venv) $ export PYTHONPATH=$PYTHONPATH:/link-to-sdi/
+  ```
 
-Et ce devrait marcher (mais non :())
+- Charger le TMY
 
-snapshot
+  ```console
+  (venv) $
+  ```
 
-### Postgis
+Et ce devrait marcher
+
+#### solar-loader - postgis DB
 
 The install has been tested on PostgreSQL 9.6 / PostGIS 2.3.
 
@@ -164,9 +168,14 @@ The install has been tested on PostgreSQL 9.6 / PostGIS 2.3.
   - listen to all
   - many tweaks
 
-snapshot
+
+#### solar-loader - postgis DB for storing radiations computations
+
+TODO
 
 ### runs
+
+
 
 
 ### results
