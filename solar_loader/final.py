@@ -45,6 +45,7 @@ STATUS_TODO = 0
 STATUS_PENDING = 1
 STATUS_DONE = 2
 STATUS_FAILED = 3
+STATUS_ACK = 4
 
 
 def round5(f):
@@ -186,6 +187,10 @@ def compute_batches(node_name, batch_size):
             )
             rows = list(
                 rows_with_geom(db, 'select_result_batch', (batch_size, ), 1))
+
+            for row in rows:
+                db.exec('insert_result_reservation',
+                    (node_name, STATUS_ACK, id))
 
             if 0 == len(rows):
                 break
