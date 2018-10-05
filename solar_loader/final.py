@@ -188,12 +188,14 @@ def compute_batches(node_name, batch_size):
             rows = list(
                 rows_with_geom(db, 'select_result_batch', (batch_size, ), 1))
 
-            for row in rows:
-                db.exec('insert_result_reservation',
-                    (node_name, STATUS_ACK, id))
-
             if 0 == len(rows):
                 break
+
+            rows_id = [str(row[id]) for row in rows]
+            rows_id_list = ', '.join((rows_id))
+
+            db.exec('insert_result_reservation',
+                    (node_name, STATUS_ACK, rows_id_list))
 
             for _ in executor.map(
                     partial(compute_radiation_roof, node_name),
