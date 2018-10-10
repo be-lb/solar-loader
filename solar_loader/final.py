@@ -171,6 +171,7 @@ def compute_radiation_roof(node_name, row):
         return id, STATUS_DONE
     except Exception as ex:
         logger.error('Error:compute({})\n{}'.format(type(ex), ex))
+        raise ex
         res.exec('insert_result',
                  (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
         return id, STATUS_FAILED
@@ -194,9 +195,8 @@ def compute_batches(node_name, batch_size):
 
             rows_id = [str(row[0]) for row in rows]
 
-            db.exec(
-                'insert_result_reservation',
-                (node_name, STATUS_ACK, rows_id))
+            db.exec('insert_result_reservation',
+                    (node_name, STATUS_ACK, rows_id))
 
             for _ in executor.map(
                     partial(compute_radiation_roof, node_name),
