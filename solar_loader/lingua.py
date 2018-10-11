@@ -78,76 +78,9 @@ def triangle_to_wkt_cw(t):
     return triangle_to_wkt(a, b, c)
 
 
-def triangle_to_wkt_ccw(t):
-    a, b, c = sort_point_counterclockwise([t.a, t.b, t.c])
-    return triangle_to_wkt(a, b, c)
-
-
 def triangles_to_surface_cc(ts):
     # return [triangle_to_wkt(t.a, t.b, t.c) for t in ts]
     return map(triangle_to_wkt_cw, ts)
-
-
-def triangles_to_surface_ccw(ts):
-    # return [triangle_to_wkt(t.a, t.c, t.b) for t in ts]
-    return map(triangle_to_wkt_ccw, ts)
-
-
-def make_polyhedral_p_0(p0, p1):
-    cs0 = p0.exterior.coords
-    cs1 = p1.exterior.coords
-    assert len(cs0) == len(
-        cs1), 'Cannot join polygons with different length in a polyhedral'
-
-    # ts0 = tesselate(p0)
-    # ts1 = tesselate(p1)
-
-    # hs = [polycoords_to_wkt(cs0)]
-    # hs = list(triangles_to_surface_cc(ts0))
-    hs = []
-    for i, _ in enumerate(cs0):
-        if i + 1 < len(cs0):
-            a = cs0[i]
-            b = cs1[i]
-            c = cs1[i + 1]
-            d = cs0[i + 1]
-            # hs.append(quad_to_wkt(a, b, c, d))
-            hs.append(triangle_to_wkt(a, b, c))
-            hs.append(triangle_to_wkt(a, c, d))
-
-    # hs.append(polycoords_to_wkt(list(reversed(cs1))))
-    # hs.extend(triangles_to_surface_ccw(ts1))
-
-    return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
-        ', '.join(hs))
-
-
-def make_polyhedral_p(p0, p1):
-    cs0 = p0.exterior.coords
-    cs1 = p1.exterior.coords
-    assert len(cs0) == len(
-        cs1), 'Cannot join polygons with different length in a polyhedral'
-
-    polys = []
-    for i, _ in enumerate(cs0):
-        if i + 1 < len(cs0):
-            a = cs0[i]
-            b = cs1[i]
-            c = cs1[i + 1]
-            d = cs0[i + 1]
-            polys.append(geometry.Polygon([a, b, c, d, a]))
-
-    mp = geometry.MultiPolygon(polys)
-
-    return 'ST_GeomFromText(\'{}\', 31370)'.format(mp.to_wkt())
-
-
-def make_polyhedral_extrude(p0, x, y, z):
-    ts0 = tesselate(p0)
-    base = 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
-        ', '.join(triangles_to_surface_cc(ts0)))
-
-    return 'ST_Extrude({}, {}, {}, {})'.format(base, x, y, z)
 
 
 def shape_to_obj(shape):
