@@ -1,7 +1,9 @@
 # -*- coding: iso-8859-1 -*-
 #
 """
-This module contains functions to calculate solar radiation on inclined surface.
+This module contains functions to calculate solar radiation on inclined
+surface.
+
 Project: Carte solaire bruxelloise
 Usage under the GNU Affero General Public License
 Authors: Daniel Klauser / Simon Albrecht, Meteotest AG, 3012 Bern, Switzerland
@@ -77,7 +79,8 @@ def compute_gk(gh,
     The calculation follows the mn-theory handbook section 6.7.2
     """
 
-    # calculate isometric rd factors for flat plane (rdiso_flat) and inclined plane (rdiso):
+    # calculate isometric rd factors for flat plane (rdiso_flat) and inclined
+    # plane (rdiso):
 
     if rdiso_flat is None or rdiso is None:
         roofrdiso = roof_rdiso(azimuth, inclination, visibility)
@@ -133,7 +136,6 @@ def compute_gk(gh,
     f2_coeff = f2[0, eps] + f2[1, eps] * delta + f2[2, eps] * sza
 
     # calculate gh_hor and dh_hor. a/b = 1 is assumed for consistency.
-    # bh_hor = visibility * bh
     gh_hor = ((visibility * (bh + dh * f1_coeff) + dh *
                (1 - f1_coeff) * rdiso_flat) / (1 - (1 - rdiso_flat) * alb))
 
@@ -203,8 +205,6 @@ def airmass(hs, alt):
     """
     alt_corr = exp(-alt / 8435.2)
     if hs < 0:
-        # hst = 0.061359 * 0.1594
-        # airmass = alt_corr / (sin(hst) + 0.50572 * (hst + 6.07995) ** -1.6364)
         airmass = alt_corr / AIRMASS_DIVIDER_4_NEG_HS
     else:
         hst = hs + 0.061359 * (0.1594 + 1.123 * hs + 0.065656 * hs**2) / (

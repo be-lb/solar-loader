@@ -36,14 +36,6 @@ class GISTriangle:
         self._compute_inclination()
         self._compute_rdiso_rdiso_flat(db)
 
-    def to_polygon(self):
-        return geometry.Polygon([
-            self.geom.a.tolist(),
-            self.geom.b.tolist(),
-            self.geom.c.tolist(),
-            self.geom.a.tolist(),
-        ])
-
     def get_norm(self):
         # if self.norm is None:
         #     self.norm = get_triangle_normal(self.geom)

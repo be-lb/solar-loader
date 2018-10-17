@@ -209,6 +209,14 @@ class SolarSim(models.Model):
         default=65,
         help_text='Cost of the redevance, in €'
     )
+    pvheater_cost = models.FloatField(
+        default=1700,
+        help_text='Cost of a PV heater, in €'
+    )
+    battery_cost = models.FloatField(
+        default=7000,
+        help_text='Cost of a home battery, in €'
+    )
     inflation_rate = models.FloatField(
         default=0.02,
         help_text='Yearly inflation rate, in %'
@@ -429,6 +437,10 @@ class SolarSim(models.Model):
             self.onduleur_replacement_rate,
             'redevance_cost':
             self.redevance_cost,
+            'pvheater_cost':
+            self.pvheater_cost,
+            'battery_cost':
+            self.battery_cost,
             'inflation_rate':
             self.inflation_rate,
             'elec_buying_price':

@@ -12,7 +12,6 @@ from .tmy import TMY
 from .records import GisTriangle, Triangle
 from .time import generate_sample_days
 from .geom import (
-    get_flattening_mat,
     get_triangle_area,
     get_triangle_azimut,
     get_triangle_center,
@@ -25,7 +24,6 @@ from .lingua import make_polyhedral, rows_with_geom
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
-from .rad5 import rad5
 
 logger = logging.getLogger(__name__)
 

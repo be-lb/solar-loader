@@ -10,10 +10,6 @@ l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
 
-class SunposNight(Exception):
-    pass
-
-
 def sub(a, b):
     return a - b
 
@@ -60,7 +56,8 @@ def get_coords_from_angles(ref_point, elev, azimut):
 
 
 def get_sun_position(ref_point, tim):
-    """Get sun position for reference point and time at 1 degree's distance reprojected on l72
+    """Get sun position for reference point and time at 1 degree's distance
+    reprojected on l72
 
     ref_point -- a 3d vector in Lambert72
     tim       -- a datetime
@@ -83,10 +80,3 @@ def get_sun_position(ref_point, tim):
     return SunPosition(
         get_coords_from_angles(ref_point, elev, saa), saa + 180, elev, True,
         tim, 90 - altitude, saa)
-
-
-# .:     a = solar.get_azimuth(lat, lon, datetime(2018, 12, 15, i, 0,0,0, timezone.utc), 0)
-#     ...:     if abs(a) < 180:
-#     ...:         print(abs(a))
-#     ...:     else:
-#     ...:         print(abs(a) - 360)
