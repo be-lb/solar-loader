@@ -19,6 +19,7 @@ class SolarSimAdmin(admin.ModelAdmin):
         ('PV installation', {
             'fields': (
                 'max_power',
+                'max_solar_irradiance',
                 'max_solar_productivity',
                 'flat_roof_tilt',
                 'low_productivity_limit',

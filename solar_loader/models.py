@@ -264,17 +264,24 @@ class SolarSim(models.Model):
         help_text='Maximum power of the photovoltaic installation, in kWc'
     )
     max_solar_productivity = models.FloatField(
-        default=1300,
+        default=940,
         help_text='Maximal solar productivity for a roof in Bruxelles, in \
-        kWh/m².an'
-    )
+        kWh/m².an'                  )
+    medium_solar_productivity = models.FloatField(
+        default=831.25,
+        help_text='Medium solar productivity for a roof in Bruxelles, in \
+        kWh/m².an')
+    max_solar_irradiance = models.FloatField(
+        default=1313,
+        help_text='Maximal solar irradiance for a roof in Bruxelles, in \
+        kWh/m².an'                                    )
     flat_roof_tilt = models.FloatField(
         default=5,
         help_text='Inclination (tilt) threshold for flat roof, in °. Roofs \
         with a tilt below this threshold are considered as flat.'
     )
     low_productivity_limit = models.FloatField(
-        default=800,
+        default=722.5,
         help_text='Low limit for roof productivity (kWh/kWc.m²). No \
         photovoltaic production is considered for roofs with a productivity \
         below this limit.'

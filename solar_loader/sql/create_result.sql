@@ -13,3 +13,4 @@ CREATE TABLE  {results.table}(
 );
 
 INSERT INTO {results.table}(roof_id) SELECT id FROM {roof.table};
+CREATE INDEX ON {results.table} (roof_id);
