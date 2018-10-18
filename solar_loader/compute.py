@@ -1,5 +1,5 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 
 import numpy as np
@@ -86,12 +86,10 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
         solid = row[1]
         # apply same transformation than the flatten triangle
         flatten_solid = transform_multipolygon(flat_mat, solid)
+
         for s in flatten_solid:
             try:
                 it = triangle_2d.intersection(s)
-                # if intersection is None:
-                #     intersection = it
-                # el
                 if it.geom_type == 'Polygon':
                     intersection.append(it)  # intersection.union(it)
             except Exception as exc:
@@ -100,8 +98,6 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
     if len(intersection) == 0:
         return gis_triangle.area
     else:
-        # print('R: {} {:.2f} {:.2f}'.format(
-        #     len(row_intersect), intersection.area, triangle_2d.area))
         int_area = ops.cascaded_union(intersection).area
         return gis_triangle.area - (
             int_area * gis_triangle.area / triangle_2d.area)

@@ -67,17 +67,15 @@ def get_triangle_normal(t):
 
 def get_triangle_azimut(t):
     """
-    The triangle azimith (in degree) for a given Triange t
-    TODO quel azimuth prendre à partir du nord, sens horaire ou non ?
+    The triangle azimuth for a given Triange t, 
+    in degrees, from North, clockwise.
     """
     norm = get_triangle_normal(t)
 
     if norm[0] == 0 and norm[1] == 0:
-        return math.pi / 2  # ???
+        return np.rad2deg(math.pi / 2)
     else:
-        return np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
-
-        # calculer en 2D
+        return 360.0 - np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
 
 
 def get_triangle_inclination(t):

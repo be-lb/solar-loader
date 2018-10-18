@@ -55,6 +55,13 @@ def hours_for_year(year):
     return time_range(start, d, 365 * 24)
 
 
+def get_day(day_n):
+    start_y = datetime(2018, 1, 1, 0, 0, 0, 0, brussels_zone)
+    d = timedelta(days=day_n)
+    start = start_y + d
+    return time_range(start, timedelta(hours=1), 23)
+
+
 def get_days(start_month, start_day, interval, n):
     start = datetime(
         datetime.now(brussels_zone).year, start_month, start_day, 0, 0, 0, 0,

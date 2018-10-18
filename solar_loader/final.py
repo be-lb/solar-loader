@@ -19,7 +19,7 @@ from .geom import (
     tesselate,
     unit_vector,
 )
-from .sunpos import get_sun_position, get_coords_from_angles
+from .sunpos import get_sun_position
 from .lingua import make_polyhedral, rows_with_geom
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
@@ -106,9 +106,7 @@ def make_task(day, tr):
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
-        sunvec = unit_vector(
-            get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth)
-            - tr.center)
+        sunvec = unit_vector(sunpos.coords - tr.center)
         time_and_vec.append((ti, sunvec))
 
     def chain(db, executor):

@@ -29,22 +29,17 @@ class TestGeom(unittest.TestCase):
 
         self.assertEqual(
             geom.vec2_dist((-1.5, 1), (0.5, 2.5)),
-            geom.vec_dist(
-                np.array((-1.5, 1)),
-                np.array((0.5, 2.5))), math.sqrt(6.25)
-            )  # math.sqrt(6.25))
-
+            geom.vec_dist(np.array((-1.5, 1)), np.array((0.5, 2.5))),
+            math.sqrt(6.25))  # math.sqrt(6.25))
 
     def test_rotation_matrix(self):
         """Test the function geom.rotation_matrix"""
         for div in [1, 2, 3, 6]:
             angle = math.pi / div
             r = geom.rotation_matrix((0, 0, 1), angle)
-            check = np.matrix([
-                [math.cos(angle), -math.sin(angle), 0],
-                [math.sin(angle), math.cos(angle), 0],
-                [0, 0, 1]
-            ])
+            check = np.matrix([[math.cos(angle), -math.sin(angle), 0],
+                               [math.sin(angle),
+                                math.cos(angle), 0], [0, 0, 1]])
             np.testing.assert_array_almost_equal(r, check)
 
             r = geom.rotation_matrix((1, 0, 0), angle)
@@ -52,7 +47,6 @@ class TestGeom(unittest.TestCase):
                 [1, 0, 0],
                 [0, math.cos(angle), -math.sin(angle)],
                 [0, math.sin(angle), math.cos(angle)],
-
             ])
             np.testing.assert_array_almost_equal(r, check)
 
@@ -64,7 +58,6 @@ class TestGeom(unittest.TestCase):
             ])
             np.testing.assert_array_almost_equal(r, check)
 
-
     def test_get_triangle_normal(self):
         """Test for the function geom.norm"""
         for a, b, c, res_unit in [
@@ -72,8 +65,9 @@ class TestGeom(unittest.TestCase):
             [(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)],
             [(0, 12, 0), (0, 0, 1), (0, 0, 0), (1, 0, 0)],
             [(0, 0, 0), (11, 0, 0), (0, 0, 1), (0, -1, 0)],
-            [(1, 0, 0), (0, 1, 0), (0, 0, 1), (
-                math.sqrt(1/3), math.sqrt(1/3), math.sqrt(1/3))],
+            [(1, 0, 0), (0, 1, 0), (0, 0, 1), (math.sqrt(1 / 3),
+                                               math.sqrt(1 / 3),
+                                               math.sqrt(1 / 3))],
         ]:
             t = Triangle(np.array(a), np.array(b), np.array(c))
             norm = geom.get_triangle_normal(t)
@@ -108,17 +102,12 @@ class TestGeom(unittest.TestCase):
             [(0, 0, 0), (1, 0, 0), (0, 1, 0), 0, None],
             [(0, 0, 0), (math.sqrt(2), 0, 1), (0, math.sqrt(2), 1), 45, None],
             [(0, 0, 0), (0, 0, 1), (0, 1, 0), 90, 0.01],
-            [
-                (0, 0, 0),
-                (1, 0, math.tan(angle_60)),
-                (1, 1, math.tan(angle_60)), 60, None
-            ],
+            [(0, 0, 0), (1, 0, math.tan(angle_60)), (1, 1, math.tan(angle_60)),
+             60, None],
             [(1, 0, 0), (0, 1, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
             [(0, 1, 0), (-1, 0, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
             [(-1, 0, 0), (0, -1, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
             [(0, -1, 0), (1, 0, 0), (0, 0, 1 / math.sqrt(2)), 45, None],
-
-
         ]:
             t = Triangle(np.array(a), np.array(b), np.array(c))
             self.assertAlmostEqual(
@@ -180,7 +169,8 @@ class TestGeom(unittest.TestCase):
             300)
         self.assertAlmostEqual(
             geom.angle_between([-1, 0, 0], [0, 1, 0]),
-            math.pi * 3 / 2, delta=0.01)
+            math.pi * 3 / 2,
+            delta=0.01)
         self.assertAlmostEqual(
             np.rad2deg(geom.angle_between([0, 1, 0], [-1, 0, 0])), 90)
         self.assertAlmostEqual(
