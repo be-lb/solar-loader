@@ -3,6 +3,7 @@ from solar_loader import sunpos
 import numpy as np
 from pysolar import solar
 from datetime import datetime, timezone
+from pkg_resources import get_distribution, parse_version
 
 class TestSunPos(unittest.TestCase):
     def test_inverse_azimut(self):
@@ -23,6 +24,10 @@ class TestSunPos(unittest.TestCase):
             self.assertAlmostEqual(res[0], x_to_check)
             self.assertAlmostEqual(res[1], y_to_check)
 
+    def test_version(self):
+        v = parse_version(get_distribution("pysolar").version)
+        self.assertTrue(v >= parse_version('0.8'))
+
     def test_get_sun_position(self):
         self.skipTest('ToDo')
 
@@ -39,14 +44,25 @@ class TestSunPos(unittest.TestCase):
         bxl_lon = 4.3528
         bxl_lat = 50.8466
 
-        hours = [8, 10, 12, 14, 16, 18]
+        verif = [
+            # (hour, min, max)
+            ( 6,  70,  80),
+            ( 8,  90, 110),
+            (10, 125, 135),
+            (12, 180, 190),
+            (14, 230, 240),
+            (16, 260, 270),
+            (18, 280, 290),
+            (20, 305, 315),
+            (22, 330, 340),
+        ]
 
-        for h in hours:
-            # utc_date = datetime(2017, 6, 21, hour=h, tzinfo=utc)
-            utc_date = datetime(2017, 9, 21, hour=h, tzinfo=timezone.utc)
-            # is heigth in meters ?
+        for (h, az_min, az_max) in verif:
+            utc_date = datetime(2017, 6, 21, hour=h, tzinfo=timezone.utc)
             azim = solar.get_azimuth(bxl_lat, bxl_lon, utc_date, 13)
-            print('{} -> azimuth : {}'.format(utc_date, azim))
+            self.assertTrue(azim > az_min)
+            self.assertTrue(azim < az_max)
+
 
 if __name__ == '__main__':
     unittest.main()

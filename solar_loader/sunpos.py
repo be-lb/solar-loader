@@ -46,21 +46,7 @@ def get_sun_position(ref_point, tim):
     altitude = solar.get_altitude(lat, lon, utc_time, z)
     elev = altitude
 
-    # QUESTION PIERRE :
-    # besoin de vérifier < 0 et > 360 : indicateur mauvais input ?
-    if azimut < 0:
-        logger.error('get_azimuth({}, {}, {}, {}) is negative : {}'.format(
-            lat, lon, utc_time, z, azimut
-        ))
-    elif azimut > 360:
-        logger.error('get_azimuth({}, {}, {}, {}) is over 360 : {}'.format(
-            lat, lon, utc_time, z, azimut
-        ))
-
-    azimut_0_360 = azimut % 360 #  modulo (retour nombre entre 0 et 359.9)
-
-    aa = abs(azimut)
-    saa = aa if aa < 180 else aa - 360
+    saa = azimut
 
     if elev < 1:
         return SunPosition([0, 0, 0], 0, 0, False, tim, 0, 0)
