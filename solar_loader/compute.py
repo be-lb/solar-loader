@@ -92,6 +92,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
                 it = triangle_2d.intersection(s)
                 if it.geom_type == 'Polygon':
                     intersection.append(it)  # intersection.union(it)
+
             except Exception as exc:
                 logger.debug(str(exc))
 

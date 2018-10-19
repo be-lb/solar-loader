@@ -12,5 +12,8 @@ CREATE TABLE  {results.table}(
     compute_end     timestamp with time zone
 );
 
-INSERT INTO {results.table}(roof_id) SELECT id FROM {roof.table};
+INSERT INTO 
+    {results.table}(roof_id) 
+SELECT id FROM {roof.table};
+
 CREATE INDEX ON {results.table} (roof_id);

@@ -10,14 +10,6 @@ l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
 
-def sub(a, b):
-    return a - b
-
-
-def add(a, b):
-    return a + b
-
-
 def _get_coords_from_angles(ref_point, elev, azimut, dist=10000):
     px, py, pz = ref_point
 

@@ -87,12 +87,6 @@ class Result:
             sid,
         ))
 
-    # def insert_sunvec(self, tid, h, start, end):
-    #     self.shadowers.append((
-    #         tid,
-    #         sid,
-    #     ))
-
     def commit(self):
         for tid, h, exposed, geom in self.triangles:
             geom_wkt = 'ST_GeomFromText(\'POLYGON Z{}\', 31370)'.format(
