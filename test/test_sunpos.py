@@ -1,9 +1,8 @@
 import unittest
-import math
 from solar_loader import sunpos
-from numpy.testing import assert_array_equal
 import numpy as np
-
+from pysolar import solar
+from datetime import datetime, timezone
 
 class TestSunPos(unittest.TestCase):
     def test_inverse_azimut(self):
@@ -35,6 +34,19 @@ class TestSunPos(unittest.TestCase):
         self.assertEqual(90 % 360, 90)
         self.assertEqual(360 % 360, 0)
         self.assertEqual(0 % 360, 0)
+
+    def test_pysolar_get_azimut(self):
+        bxl_lon = 4.3528
+        bxl_lat = 50.8466
+
+        hours = [8, 10, 12, 14, 16, 18]
+
+        for h in hours:
+            # utc_date = datetime(2017, 6, 21, hour=h, tzinfo=utc)
+            utc_date = datetime(2017, 9, 21, hour=h, tzinfo=timezone.utc)
+            # is heigth in meters ?
+            azim = solar.get_azimuth(bxl_lat, bxl_lon, utc_date, 13)
+            print('{} -> azimuth : {}'.format(utc_date, azim))
 
 if __name__ == '__main__':
     unittest.main()
