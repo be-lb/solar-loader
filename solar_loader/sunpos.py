@@ -22,7 +22,7 @@ def _get_coords_from_angles(ref_point, elev, azimut, dist=10000):
     """
     px, py, pz = ref_point
 
-    x = px + (dist * np.sin(-azimut))
+    x = px + (dist * np.sin(azimut))
     y = py + (dist * np.cos(azimut))
     z = pz + (dist * np.sin(elev))
 
