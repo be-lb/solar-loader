@@ -79,6 +79,10 @@ class Data:
                 return query
         raise QueryNotFound(query_name)
 
+    def explain(self, query_name, args=()):
+        q = self.find_query(query_name)
+        return format_q(q, args)
+
     def exec(self, query_name, args=()):
         conn = self.get_connection()
         # print('SQL({}): {}'.format(self._store_id, query_name))
