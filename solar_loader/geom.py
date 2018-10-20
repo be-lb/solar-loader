@@ -67,7 +67,7 @@ def get_triangle_normal(t):
 
 def get_triangle_azimut(t):
     """
-    The triangle azimuth for a given Triange t, 
+    The triangle azimut for a given Triange t,
     in degrees, from North, clockwise.
     """
     norm = get_triangle_normal(t)
@@ -76,6 +76,7 @@ def get_triangle_azimut(t):
         return np.rad2deg(math.pi / 2)
     else:
         return 360.0 - np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
+
 
 
 def get_triangle_inclination(t):

@@ -24,7 +24,7 @@ pvlib==0.5.2
 pyasn1==0.3.2
 pycsw==2.2.0
 pyproj==1.9.5.1
-pysolar==0.7
+pysolar==0.8
 python-dateutil==2.7.3
 python-logstash==0.4.6
 pytz==2018.5
