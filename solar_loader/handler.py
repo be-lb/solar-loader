@@ -96,8 +96,7 @@ def get_settings(request):
     else:
         return JsonResponse(
             {
-                'error':
-                'No SOLAR_SIMULATOR_SETTINGS entry in the \
+                'error': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
 Django settings'
             },
             status=500)
@@ -138,7 +137,7 @@ def get_3d(request, capakey):
     solids = []
     for roof_centroid in roofs:
         x, y = roof_centroid.coords[0]
-        axis = 'ST_GeomFromText(\'LINESTRING Z ({x} {y} 0,{x} {y} 1000)\', 31370)'.format(
+        axis = 'ST_GeomFromText(\'LINESTRING Z ({x} {y} 0, {x} {y} 1000)\', 31370)'.format(
             x=x, y=y)
 
         # print(axis)
@@ -147,15 +146,17 @@ def get_3d(request, capakey):
                                   (AsIs(axis), ), 1):
             solids.append(row[1])
 
-    minx, miny, maxx, maxy = reduce(
-        lambda acc, b: (min(acc[0], b[0]), min(acc[1], b[1]), max(acc[2], b[2]), max(acc[3], b[3]),),
-        map(lambda s: s.bounds, solids))
+    minx, miny, maxx, maxy = reduce(lambda acc, b: (
+        min(acc[0], b[0]),
+        min(acc[1], b[1]),
+        max(acc[2], b[2]),
+        max(acc[3], b[3]), ), map(lambda s: s.bounds, solids))
 
     sz = max(maxx - minx, maxy - miny)
 
     features = [
-        shape_to_feature(s, idx, dict(is_exact=True))
-        for idx, s in enumerate(solids)
+        shape_to_feature(
+            s, idx, dict(is_exact=True)) for idx, s in enumerate(solids)
     ]
 
     # box = 'Box3D(ST_GeomFromText(\'LINESTRING Z ({x0} {y0} 0,{x1} {y1} 1000)\', 31370))'.format(
@@ -168,8 +169,7 @@ def get_3d(request, capakey):
     #                           1):
     for row in rows_with_geom(data_store, 'select_within', (
             AsIs(center),
-            sz * 3,
-    ), 1):
+            sz * 1.6, ), 1):
         features.append(shape_to_feature(row[1], row[0], dict(is_exact=False)))
 
     # db = data_store
@@ -192,8 +192,7 @@ def get_spatial_ref_key(request, longitude, latitude):
     db = data_store
     rows = db.rows('select_ground_intersect', {}, (
         lon,
-        lat,
-    ))
+        lat, ))
     row_list = list(rows)
 
     capakey = None
