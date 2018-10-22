@@ -45,6 +45,9 @@ STATUS_DONE = 2
 STATUS_FAILED = 3
 STATUS_ACK = 4
 
+MAX_WORKERS = 32
+TIMEOUT = 60
+
 
 def round5(f):
     mul = f // 5
@@ -115,7 +118,7 @@ def make_task(day, tr):
             get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
             for (ti, sunvec), row_intersect in zip(
                     time_and_vec,
-                    executor.map(get_intersections, time_and_vec, timeout=60)):
+                    executor.map(get_intersections, time_and_vec, timeout=TIMEOUT)):
                 exposed_area = get_exposed_area(tr, sunvec, row_intersect)
                 rad += compute_radiation(exposed_area, ti, tr)
 
@@ -158,19 +161,23 @@ def compute_radiation_roof(node_name, row):
         'insert_result',
         (0.0, area, node_name, STATUS_PENDING, start_time, start_time, id))
     try:
-        with ThreadPoolExecutor(max_workers=32) as executor:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             total_rad = sum(process_tasks(geom, db, executor))
 
         res.exec(
             'insert_result',
             (total_rad, area, node_name, STATUS_DONE, start_time, now(), id))
         return id, STATUS_DONE
-    except Exception as ex:
-        logger.error('Error:compute({})\n{}'.format(type(ex), ex))
-        raise ex
+    except ValueError as ex:
+        logger.error('Value error in compute_radiation_roof : {}'.format(ex))
         res.exec('insert_result',
                  (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
-        return id, STATUS_FAILED
+        # raise ex
+    except Exception as ex:
+        logger.error('Value error in compute_radiation_roof : {}'.format(ex))
+        res.exec('insert_result',
+                 (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
+        # raise ex
 
 
 def compute_batches(node_name, batch_size):

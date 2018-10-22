@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 from psycopg2.extensions import AsIs
 from shapely import geometry, ops
+from shapely.geos import TopologicalError
 
 from .geom import (
     GeometryMissingDimension,
@@ -90,18 +91,39 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
         for s in flatten_solid:
             try:
                 it = triangle_2d.intersection(s)
-                if it.geom_type == 'Polygon':
-                    intersection.append(it)  # intersection.union(it)
 
-            except Exception as exc:
-                logger.debug(str(exc))
+                if it.geom_type == 'Polygon':
+                    intersection.append(it)
+                elif it.geom_type == 'MultiPolygon':
+                    intersection.append(it)
+                else:
+                    logger.error('triangle_2d.intersection gave {} : ignored'.format(it.geom_type))
+
+            except TopologicalError as e:
+                if triangle_2d.is_valid:
+                    logger.error('triangle_2d is not valid')
+                    raise e
+
+                if not s.is_valid:
+                    logger.error('S from flatten_solid is not valid')
+                    # on peut passer
+            except Exception as e:
+                logger.debug(str(e))
+                print(type(e))
+                raise e
 
     if len(intersection) == 0:
         return gis_triangle.area
     else:
-        int_area = ops.cascaded_union(intersection).area
-        return gis_triangle.area - (
-            int_area * gis_triangle.area / triangle_2d.area)
+        try:
+            int_area = ops.cascaded_union(intersection).area
+            return gis_triangle.area - (
+                int_area * gis_triangle.area / triangle_2d.area)
+        except Exception as e:
+            logger.error('Exception {}'.format(e))
+            logger.error('Error cascaded union for {}'.format(intersection))
+            logger.error('handle with gis_triangle.area')
+            return gis_triangle.area
 
 
 def worker(db, tmy, sample_rate, gis_triangles, with_shadows, day):
