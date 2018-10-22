@@ -1,3 +1,3 @@
 INSERT INTO solar.polyhedrals 
-    (tim, geom)
+    (hour, geom)
     VALUES (%s, %s);

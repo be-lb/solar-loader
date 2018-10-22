@@ -12,7 +12,6 @@ from .tmy import TMY
 from .records import GisTriangle, Triangle
 from .time import generate_sample_days
 from .geom import (
-    get_flattening_mat,
     get_triangle_area,
     get_triangle_azimut,
     get_triangle_center,
@@ -20,12 +19,11 @@ from .geom import (
     tesselate,
     unit_vector,
 )
-from .sunpos import get_sun_position, get_coords_from_angles
+from .sunpos import get_sun_position
 from .lingua import make_polyhedral, rows_with_geom
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
-from .rad5 import rad5
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +106,7 @@ def make_task(day, tr):
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
-        sunvec = unit_vector(
-            get_coords_from_angles(tr.center, sunpos.elevation, sunpos.azimuth)
-            - tr.center)
+        sunvec = unit_vector(sunpos.coords - tr.center)
         time_and_vec.append((ti, sunvec))
 
     def chain(db, executor):
@@ -171,6 +167,7 @@ def compute_radiation_roof(node_name, row):
         return id, STATUS_DONE
     except Exception as ex:
         logger.error('Error:compute({})\n{}'.format(type(ex), ex))
+        raise ex
         res.exec('insert_result',
                  (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
         return id, STATUS_FAILED
@@ -185,17 +182,17 @@ def compute_batches(node_name, batch_size):
                 settings.SOLAR_TABLES,
                 reset=True,
             )
+
             rows = list(
                 rows_with_geom(db, 'select_result_batch', (batch_size, ), 1))
 
             if 0 == len(rows):
                 break
 
-            rows_id = [str(row[id]) for row in rows]
-            rows_id_list = ', '.join((rows_id))
+            rows_id = [str(row[0]) for row in rows]
 
             db.exec('insert_result_reservation',
-                    (node_name, STATUS_ACK, rows_id_list))
+                    (node_name, STATUS_ACK, rows_id))
 
             for _ in executor.map(
                     partial(compute_radiation_roof, node_name),

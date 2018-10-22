@@ -19,6 +19,7 @@ class SolarSimAdmin(admin.ModelAdmin):
         ('PV installation', {
             'fields': (
                 'max_power',
+                'max_solar_irradiance',
                 'max_solar_productivity',
                 'flat_roof_tilt',
                 'low_productivity_limit',
@@ -28,6 +29,14 @@ class SolarSimAdmin(admin.ModelAdmin):
                 'pv_cost_poly',
                 'pv_cost_mono',
                 'pv_cost_mono_high',
+                'obstacle_default_rate',
+                'obstacle_area_chimneySmoke',
+                'obstacle_area_velux',
+                'obstacle_area_dormerWindow',
+                'obstacle_area_flatRoofWindow',
+                'obstacle_area_terraceInUse',
+                'obstacle_area_lift',
+                'obstacle_area_existingSolarPannel',
             ),
         }),
         ('User', {

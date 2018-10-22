@@ -209,6 +209,14 @@ class SolarSim(models.Model):
         default=65,
         help_text='Cost of the redevance, in €'
     )
+    pvheater_cost = models.FloatField(
+        default=1700,
+        help_text='Cost of a PV heater, in €'
+    )
+    battery_cost = models.FloatField(
+        default=7000,
+        help_text='Cost of a home battery, in €'
+    )
     inflation_rate = models.FloatField(
         default=0.02,
         help_text='Yearly inflation rate, in %'
@@ -264,17 +272,24 @@ class SolarSim(models.Model):
         help_text='Maximum power of the photovoltaic installation, in kWc'
     )
     max_solar_productivity = models.FloatField(
-        default=1300,
+        default=940,
         help_text='Maximal solar productivity for a roof in Bruxelles, in \
-        kWh/m².an'
-    )
+        kWh/m².an')
+    medium_solar_productivity = models.FloatField(
+        default=831.25,
+        help_text='Medium solar productivity for a roof in Bruxelles, in \
+        kWh/m².an')
+    max_solar_irradiance = models.FloatField(
+        default=1313,
+        help_text='Maximal solar irradiance for a roof in Bruxelles, in \
+        kWh/m².an')
     flat_roof_tilt = models.FloatField(
         default=5,
         help_text='Inclination (tilt) threshold for flat roof, in °. Roofs \
         with a tilt below this threshold are considered as flat.'
     )
     low_productivity_limit = models.FloatField(
-        default=800,
+        default=722.5,
         help_text='Low limit for roof productivity (kWh/kWc.m²). No \
         photovoltaic production is considered for roofs with a productivity \
         below this limit.'
@@ -306,6 +321,39 @@ class SolarSim(models.Model):
         default=1600/1.06,
         help_text='Price of the photovoltaic panel, for high yield \
         monocristallin panels in €/kWc'
+    )
+    obstacle_default_rate = models.FloatField(
+        default=0.177,
+        help_text='Default obstacle rate for a building'
+    )
+    obstacle_area_chimneySmoke = models.FloatField(
+        default=0.8719,
+        help_text='Average obstacle area for a chimney, in m²'
+    )
+    obstacle_area_velux = models.FloatField(
+        default=1.409,
+        help_text='Average obstacle area for a velux, in m²'
+    )
+    obstacle_area_dormerWindow = models.FloatField(
+        default=5.339,
+        help_text='Average obstacle area for a dormer window, in m²'
+    )
+    obstacle_area_flatRoofWindow = models.FloatField(
+        default=4.192,
+        help_text='Average obstacle area for a flat roof window, in m²'
+    )
+    obstacle_area_terraceInUse = models.FloatField(
+        default=26.09,
+        help_text='Average obstacle area for a terrace, in m²'
+    )
+    obstacle_area_lift = models.FloatField(
+        default=10.93,
+        help_text='Average obstacle area for a lift on a flat roof, in m²'
+    )
+    obstacle_area_existingSolarPannel = models.FloatField(
+        default=36.05,
+        help_text='Average obstacle area for a existing solar panel \
+        installation, in m²'
     )
 
     # user
@@ -422,6 +470,10 @@ class SolarSim(models.Model):
             self.onduleur_replacement_rate,
             'redevance_cost':
             self.redevance_cost,
+            'pvheater_cost':
+            self.pvheater_cost,
+            'battery_cost':
+            self.battery_cost,
             'inflation_rate':
             self.inflation_rate,
             'elec_buying_price':
@@ -450,6 +502,22 @@ class SolarSim(models.Model):
             self.flat_roof_tilt,
             'low_productivity_limit':
             self.low_productivity_limit,
+            'obstacle_default_rate':
+            self.obstacle_default_rate,
+            'obstacle_area_chimneySmoke':
+            self.obstacle_area_chimneySmoke,
+            'obstacle_area_velux':
+            self.obstacle_area_velux,
+            'obstacle_area_dormerWindow':
+            self.obstacle_area_dormerWindow,
+            'obstacle_area_flatRoofWindow':
+            self.obstacle_area_flatRoofWindow,
+            'obstacle_area_terraceInUse':
+            self.obstacle_area_terraceInUse,
+            'obstacle_area_lift':
+            self.obstacle_area_lift,
+            'obstacle_area_existingSolarPannel':
+            self.obstacle_area_existingSolarPannel,
             'annual_consumption_base':
             self.annual_consumption_base,
             'washing_machine_factor':

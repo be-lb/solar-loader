@@ -1,5 +1,5 @@
 import math
-from functools import partial, reduce
+from functools import partial
 import numpy as np
 from shapely import geometry, ops
 from .records import Triangle
@@ -67,17 +67,16 @@ def get_triangle_normal(t):
 
 def get_triangle_azimut(t):
     """
-    The triangle azimith (in degree) for a given Triange t
-    TODO quel azimuth prendre à partir du nord, sens horaire ou non ?
+    The triangle azimut for a given Triange t,
+    in degrees, from North, clockwise.
     """
     norm = get_triangle_normal(t)
 
     if norm[0] == 0 and norm[1] == 0:
-        return math.pi / 2  # ???
+        return np.rad2deg(math.pi / 2)
     else:
-        return np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
+        return 360.0 - np.rad2deg(angle_between(np.array([0, 1]), norm[:2]))
 
-        # calculer en 2D
 
 
 def get_triangle_inclination(t):
@@ -136,19 +135,6 @@ def polygon_drop_z(poly):
     ]
 
 
-def multipolygon_drop_z(mpoly):
-    """
-    NOT USED (used in a commented line)
-    """
-    ps = []
-    zs = []
-    for p, z in map(polygon_drop_z, mpoly):
-        ps.append(p)
-        zs.append(z)
-
-    return geometry.MultiPolygon(ps), zs
-
-
 def triangle_from_shape(shape):
     coords = shape.exterior.coords
     return Triangle(
@@ -198,15 +184,7 @@ def unit_vector(vector):
 
 # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
 def angle_between(v1, v2):
-    """ Returns the angle in radians between vectors 'v1' and 'v2'::
-
-    >>> angle_between((1, 0, 0), (0, 1, 0))
-    1.5707963267948966
-    >>> angle_between((1, 0, 0), (1, 0, 0))
-    0.0
-    >>> angle_between((1, 0, 0), (-1, 0, 0))
-    3.141592653589793
-    """
+    """ Returns the angle in radians between vectors 'v1' and 'v2'"""
     v1 = np.array(v1)
     v2 = np.array(v2)
 
@@ -232,22 +210,3 @@ def angle_between(v1, v2):
         elif dot_with_axis < 0:
             return (2 * math.pi) - arccos
     return arccos
-
-
-def foreach_coords(f):
-    def inner(poly):
-        for coord in poly.exterior.coords:
-            f(coord)
-
-    return inner
-
-
-def reduce_coords(f, ini):
-    def inner(poly):
-        return reduce(f, poly.exterior.coords, ini)
-
-    return inner
-
-
-def op_coord(op, i, base, coord):
-    return op(base, coord[i])

@@ -13,11 +13,12 @@
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from collections import namedtuple
+from functools import reduce
 from django.http import JsonResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from psycopg2.extensions import AsIs
-from functools import reduce
 
 from .store import Data
 from .tmy import TMY
@@ -42,39 +43,43 @@ def capakey_out(capakey):
     return capakey.replace('/', '-')
 
 
+ID = 0
+GEOM = 1
+AREA = 2
+IRRADIANCE = 3
+
+
+def make_roof_props_from_row(solar_sim, row):
+    area = float(row[AREA])
+    r = float(row[IRRADIANCE])
+    geom = row[GEOM]
+    return {
+        'area':
+        area,
+        'tilt':
+        90 - get_roof_tilt(geom),
+        'azimuth':
+        get_roof_azimuth(geom),
+        'irradiance': (r / area) / 1000.0,
+        'productivity': (r / area / 1000.0) * solar_sim.max_solar_productivity
+        / solar_sim.max_solar_irradiance,
+    }
+
+
 def get_roofs(request, capakey):
     """
     Get roofs (id, geomtry, area and irradiance) as a geojson FeatureCollection
     for a given capakey.
     """
+    solar_sim = get_object_or_404(SolarSim, current=True)
     db = data_store
     roof_rows = list(
         rows_with_geom(db, 'select_roof_within', (capakey_in(capakey), ), 1))
 
-    for i, cell in enumerate(roof_rows[0]):
-        print('cell[{}] :: {}'.format(i, type(cell)))
-
-    roofs = []
-    for roof_row in roof_rows:
-        roof_id = roof_row[0]
-        wkt_geom = roof_row[1]
-        area = roof_row[2]
-        irradiance = float(roof_row[3]) / roof_row[2]
-
-        roofs.append(Roof(roof_id, wkt_geom, area, irradiance))
-
     features = [
-        shape_to_feature(
-            roof.wkt_geom,
-            roof.id,
-            {
-                'irradiance': roof.irradiance,
-                'area': get_roof_area(roof.wkt_geom),
-                # hot fix
-                'tilt': 90 - get_roof_tilt(roof.wkt_geom),
-                'azimuth': get_roof_azimuth(roof.wkt_geom),
-                'productivity': roof.productivity
-            }) for roof in roofs
+        shape_to_feature(roof[GEOM], roof[ID],
+                         make_roof_props_from_row(solar_sim, roof))
+        for roof in roof_rows
     ]
 
     collection = make_feature_collection(features)

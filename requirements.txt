@@ -1,8 +1,6 @@
 amqp==2.3.2
 attrs==18.2.0
 billiard==3.5.0.4
-celery==4.2.1
-click==6.7
 diskcache==3.0.1
 Django==1.11.4
 django-appconf==1.0.2
@@ -26,7 +24,7 @@ pvlib==0.5.2
 pyasn1==0.3.2
 pycsw==2.2.0
 pyproj==1.9.5.1
-pysolar==0.7
+pysolar==0.8
 python-dateutil==2.7.3
 python-logstash==0.4.6
 pytz==2018.5

@@ -1,7 +1,7 @@
 SELECT
     r.id, 
     st_astext(r.{roof.geometry}), 
-    st_area(r.{roof.geometry}), 
+    res.area, 
     res.{results.irradiance}, 
     st_astext(r.{roof.centroid}) 
 FROM

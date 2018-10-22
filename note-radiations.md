@@ -141,6 +141,7 @@ Both should be Debian 9
   (venv) $
   ```
 
+
 Et ce devrait marcher
 
 #### solar-loader - postgis DB
@@ -175,6 +176,9 @@ TODO
 
 ### runs
 
+```console
+(venv) $ django-admin computeradiations --batch-size 2400 nom-de-la-machine
+```
 
 
 

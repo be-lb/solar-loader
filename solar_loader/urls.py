@@ -15,7 +15,7 @@
 #
 
 from django.conf.urls import url
-from .handler import get_roofs, get_settings, get_geom, get_3d,\
+from .handler import get_roofs, get_geom, get_3d,\
     get_spatial_ref_key, get_solar_sim, get_descriptions
 
 urlpatterns = [
