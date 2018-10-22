@@ -29,6 +29,7 @@ class SolarSimAdmin(admin.ModelAdmin):
                 'pv_cost_poly',
                 'pv_cost_mono',
                 'pv_cost_mono_high',
+                'lost_space_rate',
                 'obstacle_default_rate',
                 'obstacle_area_chimneySmoke',
                 'obstacle_area_velux',
