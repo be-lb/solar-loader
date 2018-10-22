@@ -322,6 +322,13 @@ class SolarSim(models.Model):
         help_text='Price of the photovoltaic panel, for high yield \
         monocristallin panels in €/kWc'
     )
+    lost_space_rate = models.FloatField(
+        default=0.15,
+        help_text='This a rate of roof area that is lost due to the \
+        impossibility of exploiting every part of the roof area. The usable \
+        roof area is computed as UsableArea = Area * (1 - lost_space_rate - \
+        obstacleRate)'
+    )
     obstacle_default_rate = models.FloatField(
         default=0.177,
         help_text='Default obstacle rate for a building'
@@ -502,6 +509,8 @@ class SolarSim(models.Model):
             self.flat_roof_tilt,
             'low_productivity_limit':
             self.low_productivity_limit,
+            'lost_space_rate':
+            self.lost_space_rate,
             'obstacle_default_rate':
             self.obstacle_default_rate,
             'obstacle_area_chimneySmoke':
