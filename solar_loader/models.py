@@ -239,12 +239,12 @@ class SolarSim(models.Model):
         rate change'
     )
     cv_rate_low_power = models.FloatField(
-        default=3,
+        default=2.4,
         help_text='Rate of Certificat Vert for low power installation, in \
         CV/MWh'
     )
     cv_rate_high_power = models.FloatField(
-        default=2.4,
+        default=1.8182,
         help_text='Rate of Certificat Vert for high power installation, in \
         CV/MWh'
     )
