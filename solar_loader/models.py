@@ -239,12 +239,12 @@ class SolarSim(models.Model):
         rate change'
     )
     cv_rate_low_power = models.FloatField(
-        default=3,
+        default=2.4,
         help_text='Rate of Certificat Vert for low power installation, in \
         CV/MWh'
     )
     cv_rate_high_power = models.FloatField(
-        default=2.4,
+        default=1.8182,
         help_text='Rate of Certificat Vert for high power installation, in \
         CV/MWh'
     )
@@ -321,6 +321,13 @@ class SolarSim(models.Model):
         default=1600/1.06,
         help_text='Price of the photovoltaic panel, for high yield \
         monocristallin panels in €/kWc'
+    )
+    lost_space_rate = models.FloatField(
+        default=0.15,
+        help_text='This a rate of roof area that is lost due to the \
+        impossibility of exploiting every part of the roof area. The usable \
+        roof area is computed as UsableArea = Area * (1 - lost_space_rate - \
+        obstacleRate)'
     )
     obstacle_default_rate = models.FloatField(
         default=0.177,
@@ -502,6 +509,8 @@ class SolarSim(models.Model):
             self.flat_roof_tilt,
             'low_productivity_limit':
             self.low_productivity_limit,
+            'lost_space_rate':
+            self.lost_space_rate,
             'obstacle_default_rate':
             self.obstacle_default_rate,
             'obstacle_area_chimneySmoke':
