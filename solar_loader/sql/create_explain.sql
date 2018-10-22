@@ -12,7 +12,8 @@ TRUNCATE TABLE solar.explain_res;
 -- SELECT AddGeometryColumn('solar','explain_res','geom','31370','POLYGON', 3);
 
 CREATE TABLE  solar.polyhedrals (
-    hour integer not null
+    hour integer not null,
+    request text
 );
 SELECT AddGeometryColumn('solar','polyhedrals','geom','31370','POLYHEDRALSURFACE', 3);
 
@@ -21,3 +22,5 @@ CREATE TABLE  solar.explain_sh (
     tid integer not null,
     shid  integer not null
 );
+
+SET postgis.backend = geos;

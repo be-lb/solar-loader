@@ -147,7 +147,7 @@ def compute_radiation(exposed_area, tim, triangle):
 
 
 def query_intersections(triangle, sunvec, hour):
-    nearvec = sunvec * 1.0
+    nearvec = sunvec * 0.1
     farvec = sunvec * 200.0
     triangle_near = Triangle(triangle.a + nearvec, triangle.b + nearvec,
                              triangle.c + nearvec)
@@ -155,7 +155,11 @@ def query_intersections(triangle, sunvec, hour):
                             triangle.c + farvec)
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
-    db.exec('insert_polyhedral', (hour, AsIs(polyhedr)))
+    db.exec('insert_polyhedral', (
+        hour,
+        db.explain('select_intersect', (AsIs(polyhedr), )),
+        AsIs(polyhedr),
+    ))
 
     return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
 

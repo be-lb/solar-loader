@@ -239,12 +239,12 @@ class SolarSim(models.Model):
         rate change'
     )
     cv_rate_low_power = models.FloatField(
-        default=3,
+        default=2.4,
         help_text='Rate of Certificat Vert for low power installation, in \
         CV/MWh'
     )
     cv_rate_high_power = models.FloatField(
-        default=2.4,
+        default=1.8182,
         help_text='Rate of Certificat Vert for high power installation, in \
         CV/MWh'
     )
@@ -321,6 +321,13 @@ class SolarSim(models.Model):
         default=1600/1.06,
         help_text='Price of the photovoltaic panel, for high yield \
         monocristallin panels in €/kWc'
+    )
+    lost_space_rate = models.FloatField(
+        default=0.15,
+        help_text='This a rate of roof area that is lost due to the \
+        impossibility of exploiting every part of the roof area. The usable \
+        roof area is computed as UsableArea = Area * (1 - lost_space_rate - \
+        obstacleRate)'
     )
     obstacle_default_rate = models.FloatField(
         default=0.177,
@@ -502,22 +509,21 @@ class SolarSim(models.Model):
             self.flat_roof_tilt,
             'low_productivity_limit':
             self.low_productivity_limit,
+            'medium_solar_productivity':self.medium_solar_productivity,
+            'max_solar_irradiance':self.max_solar_irradiance,
+            'lost_space_rate':
+            self.lost_space_rate,
             'obstacle_default_rate':
             self.obstacle_default_rate,
-            'obstacle_area_chimneySmoke':
-            self.obstacle_area_chimneySmoke,
-            'obstacle_area_velux':
-            self.obstacle_area_velux,
-            'obstacle_area_dormerWindow':
-            self.obstacle_area_dormerWindow,
-            'obstacle_area_flatRoofWindow':
-            self.obstacle_area_flatRoofWindow,
-            'obstacle_area_terraceInUse':
-            self.obstacle_area_terraceInUse,
-            'obstacle_area_lift':
-            self.obstacle_area_lift,
-            'obstacle_area_existingSolarPannel':
-            self.obstacle_area_existingSolarPannel,
+            'obstacle': {
+                'chimneySmoke': self.obstacle_area_chimneySmoke,
+                'velux': self.obstacle_area_velux,
+                'dormerWindow': self.obstacle_area_dormerWindow,
+                'flatRoofWindow': self.obstacle_area_flatRoofWindow,
+                'terraceInUse': self.obstacle_area_terraceInUse,
+                'lift': self.obstacle_area_lift,
+                'existingSolarPannel': self.obstacle_area_existingSolarPannel,
+            },
             'annual_consumption_base':
             self.annual_consumption_base,
             'washing_machine_factor':

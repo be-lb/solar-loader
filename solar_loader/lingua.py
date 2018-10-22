@@ -45,12 +45,34 @@ def polycoords_to_wkt(coords):
     return '(({}))'.format(', '.join(map(coord_to_wkt, coords)))
 
 
-def make_polyhedral(t0, t1):
+def make_polyhedral_bak(t0, t1):
     hs = [
         triangle_to_wkt(t0.a, t0.b, t0.c),
         quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
         quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
         quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        triangle_to_wkt(t1.a, t1.c, t1.b),
+    ]
+
+    return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
+        ', '.join(hs))
+
+
+def make_polyhedral(t0, t1):
+    hs = [
+        triangle_to_wkt(t0.a, t0.b, t0.c),
+        # quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
+        triangle_to_wkt(t0.a, t1.a, t1.b),
+        triangle_to_wkt(t0.a, t1.b, t0.b),
+        #
+        # quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
+        triangle_to_wkt(t0.b, t1.b, t1.c),
+        triangle_to_wkt(t0.b, t1.c, t0.c),
+        #
+        # quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        triangle_to_wkt(t0.c, t1.c, t1.a),
+        triangle_to_wkt(t0.c, t1.a, t0.a),
+        #
         triangle_to_wkt(t1.a, t1.c, t1.b),
     ]
 
