@@ -100,7 +100,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
                     logger.error('triangle_2d.intersection gave {} : ignored'.format(it.geom_type))
 
             except TopologicalError as e:
-                if triangle_2d.is_valid:
+                if not triangle_2d.is_valid:
                     logger.error('triangle_2d is not valid')
                     raise e
 
