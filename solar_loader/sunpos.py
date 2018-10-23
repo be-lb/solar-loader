@@ -5,11 +5,11 @@ from pytz import utc
 import logging
 from .records import SunPosition
 
-
 l72 = Proj(init='EPSG:31370')
 wgs = Proj(init='EPSG:4326')
 
 logger = logging.getLogger(__name__)
+
 
 def _get_coords_from_angles(ref_point, elev, azimut, dist=10000):
     """
@@ -30,7 +30,7 @@ def _get_coords_from_angles(ref_point, elev, azimut, dist=10000):
 
 
 def get_sun_position(ref_point, tim):
-    """Get sun position for reference point and time at 1 degree's distance
+    """Get sun position for reference point and time at 10km distance
     reprojected on l72
 
     ref_point -- a 3d vector in Lambert72
@@ -44,13 +44,13 @@ def get_sun_position(ref_point, tim):
 
     azimut = solar.get_azimuth(lat, lon, utc_time, z)
     altitude = solar.get_altitude(lat, lon, utc_time, z)
-    elev = altitude
+    saa = azimut - 180  # solar azimuth angle (degrees between -180 to +180, 0 at South)
+    sza = 90 - altitude  # solar zenit angle (0 = zenit, 90 = horizon)
 
-    saa = azimut
-
-    if elev < 1:
+    if altitude < 1:
         return SunPosition([0, 0, 0], 0, 0, False, tim, 0, 0)
 
-    coords = _get_coords_from_angles(ref_point, np.deg2rad(elev),
-                                     np.deg2rad(saa + 180))
-    return SunPosition(coords, saa + 180, elev, True, tim, 90 - altitude, saa)
+    coords = _get_coords_from_angles(ref_point, np.deg2rad(altitude),
+                                     np.deg2rad(azimut))
+
+    return SunPosition(coords, azimut, altitude, True, tim, sza, saa)

@@ -176,6 +176,7 @@ def make_task(day, tr):
     its = list(map(get_intersections, time_and_vec))
 
     hours = []
+    sunvecs = []
     exposed = []
     diffuse = []
     direct = []
@@ -187,6 +188,8 @@ def make_task(day, tr):
 
         di, dr = compute_radiation(exposed_area, ti, tr)
         hours.append(str(ti.hour))
+        sunvecs.append('({:.1f}, {:.1f}, {:.1f})'.format(
+            sunvec[0], sunvec[1], sunvec[2]))
         exposed.append(str(round(exposed_area)))
         diffuse.append(str(round(di / 1000)))
         direct.append(str(round(dr / 1000)))
@@ -199,6 +202,7 @@ def make_task(day, tr):
     is_header = True
     for n, line in (
         ("hours", hours),
+        ("sunvec", sunvecs),
         ("exposed", exposed),
         ("diffuse", diffuse),
         ("direct", direct),
