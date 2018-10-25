@@ -6,6 +6,8 @@ import django
 from django.conf import settings
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import numpy as np
+from time import perf_counter
+import shapely
 
 from .time import now
 from .store import Data
@@ -20,9 +22,11 @@ from .geom import (
     get_triangle_normal,
     tesselate,
     unit_vector,
+    transform_polygon,
+    transform_triangle,
 )
 from .sunpos import get_sun_position
-from .lingua import make_polyhedral, rows_with_geom, triangle_to_wkt
+from .lingua import make_polyhedral, rows_with_geom, triangle_to_wkt, tesselate_to_shape
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
@@ -63,6 +67,7 @@ class Result:
     def __init__(self):
         self.tid = 1
         self.triangles = []
+        self.shadows = []
         self.shadowers = []
         self.sunvecs = []
 
@@ -81,6 +86,13 @@ class Result:
         ))
         return tid
 
+    def insert_shadow(self, hour, stype, geom):
+        self.shadows.append((
+            hour,
+            stype,
+            geom,
+        ))
+
     def insert_shadower(self, tid, sid):
         self.shadowers.append((
             tid,
@@ -97,6 +109,12 @@ class Result:
                 ))
             row = (tid, h, exposed, AsIs(geom_wkt))
             db.exec('insert_explain_triangle', row)
+
+        for hour, stype, geom in self.shadows:
+            geom_wkt = 'ST_GeomFromText(\'{}\', 31370)'.format(geom.wkt)
+            # print(geom_wkt)
+            row = (hour, stype, AsIs(geom_wkt))
+            db.exec('insert_explain_shadow', row)
 
         for row in self.shadowers:
             db.exec('insert_explain_shadower', row)
@@ -136,7 +154,7 @@ def compute_radiation(exposed_area, tim, triangle):
         rdiso_flat,
         rdiso)
 
-    diffuse = triangle.area * (radiation_global - radiation_direct)
+    diffuse = radiation_global - radiation_direct
     direct = exposed_area * radiation_direct
 
     # print('  diffuse: {}'.format(diffuse))
@@ -144,6 +162,27 @@ def compute_radiation(exposed_area, tim, triangle):
 
     # return (diffuse + direct) * sample_rate
     return diffuse, direct
+
+
+class IntersectCache:
+    def __init__(self):
+        self._cache = dict()
+
+    def get_solid(self, row):
+        id = row[0]
+        if id not in self._cache:
+            tes = tesselate_to_shape(row[1])
+            print('IntersectCache INSERT {} {}'.format(id, len(tes)))
+            self._cache[id] = tes # tesselate_to_shape(row[1])
+        return (id, self._cache[id])
+    
+    def dump_cache(self):
+        for id in self._cache:
+            c= self._cache[id]
+            for geom in c:
+                db.exec('insert_tesselated', (id, AsIs('ST_GeomFromText(\'{}\', 31370)'.format(geom.wkt))))
+
+intersect_cache = IntersectCache()
 
 
 def query_intersections(triangle, sunvec, hour):
@@ -155,13 +194,20 @@ def query_intersections(triangle, sunvec, hour):
                             triangle.c + farvec)
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
-    db.exec('insert_polyhedral', (
-        hour,
-        db.explain('select_intersect', (AsIs(polyhedr), )),
-        AsIs(polyhedr),
-    ))
+    start = perf_counter()
+    select = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+    results = list(map(lambda row: intersect_cache.get_solid(row), select))
 
-    return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
+    db.exec(
+        'insert_polyhedral',
+        (
+            hour,
+            # db.explain('select_intersect', (AsIs(polyhedr), )),
+            str(perf_counter() - start),
+            AsIs(polyhedr),
+        ))
+
+    return results
 
 
 def make_task(day, tr):
@@ -184,13 +230,46 @@ def make_task(day, tr):
 
     for (ti, sunvec), row_intersect in zip(time_and_vec, its):
 
-        exposed_area = get_exposed_area(tr, sunvec, row_intersect)
+        def pp(t, trans_mat, rot_mat, geom):
+            flat_mat = trans_mat @ rot_mat
+            # unrot_mat = np.linalg.inv(rot_mat)
+            unflat_mat = np.linalg.inv(flat_mat)
+            flat_triangle = transform_triangle(flat_mat, tr.geom)
+
+            if 'append' == t:
+
+                def get_z(x, y):
+                    rp = np.dot([x, y, 0, 1], rot_mat)
+                    return rp[2]
+
+                g = shapely.geometry.Polygon([
+                    [coord[0], coord[1], 0]
+                    #   get_z(coord[0], coord[1])]
+                    for coord in geom.exterior.coords
+                ])
+
+                moeg = transform_polygon(unflat_mat, g)
+                result.insert_shadow(ti.hour, 'unflat', moeg)
+                result.insert_shadow(ti.hour, 'flat', g)
+                result.insert_shadow(
+                    ti.hour, 'ref',
+                    shapely.geometry.Polygon([
+                        flat_triangle.a[:3],
+                        flat_triangle.b[:3],
+                        flat_triangle.c[:3],
+                        flat_triangle.a[:3],
+                    ]))
+            elif 'solid' == t:
+                result.insert_shadow(ti.hour, 'solid', geom)
+
+        exposed_area = get_exposed_area(
+            tr, sunvec, (map(lambda r: r[1], row_intersect)), pp)
 
         di, dr = compute_radiation(exposed_area, ti, tr)
         hours.append(str(ti.hour))
         sunvecs.append('({:.1f}, {:.1f}, {:.1f})'.format(
             sunvec[0], sunvec[1], sunvec[2]))
-        exposed.append(str(round(exposed_area)))
+        exposed.append('{:.2f}'.format(exposed_area))
         diffuse.append(str(round(di / 1000)))
         direct.append(str(round(dr / 1000)))
         tot.append(str(round((di + dr) / 1000)))
@@ -202,7 +281,7 @@ def make_task(day, tr):
     is_header = True
     for n, line in (
         ("hours", hours),
-        ("sunvec", sunvecs),
+            # ("sunvec", sunvecs),
         ("exposed", exposed),
         ("diffuse", diffuse),
         ("direct", direct),
@@ -268,3 +347,4 @@ def analyze(roof_id, day):
     compute_radiation_roof(rows[0], day)
 
     result.commit()
+    intersect_cache.dump_cache()

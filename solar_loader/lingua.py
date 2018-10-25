@@ -109,6 +109,15 @@ def shape_to_obj(shape):
     return geometry.mapping(shape)
 
 
+def triangle_to_shape(t):
+    return geometry.Polygon([
+        t.a.tolist(),
+        t.b.tolist(),
+        t.c.tolist(),
+        t.a.tolist(),
+    ])
+
+
 def shape_to_feature(shape, id, props=dict()):
     return {
         "type": "Feature",
@@ -173,3 +182,12 @@ def triangle_to_geojson(t):
             ],
         }
     }
+
+
+def tesselate_to_shape(shape):
+    """
+    shape -- shapely.geometry.Geometry
+    
+    returns a shapely.geometry.Multipolygon
+    """
+    return  list(map(triangle_to_shape, tesselate(shape)))

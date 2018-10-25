@@ -1,7 +1,9 @@
 
 -- DROP TABLE IF EXISTS solar.explain_res;
 DROP TABLE IF EXISTS solar.explain_sh;
+DROP TABLE IF EXISTS solar.explain_s;
 DROP TABLE IF EXISTS solar.polyhedrals;
+DROP TABLE IF EXISTS solar.tesselated;
 
 TRUNCATE TABLE solar.explain_res;
 -- CREATE TABLE  solar.explain_res (
@@ -17,6 +19,16 @@ CREATE TABLE  solar.polyhedrals (
 );
 SELECT AddGeometryColumn('solar','polyhedrals','geom','31370','POLYHEDRALSURFACE', 3);
 
+CREATE TABLE  solar.explain_s (
+    hour integer not null,
+    stype text
+);
+SELECT AddGeometryColumn('solar','explain_s','geom','31370','POLYGON', 3);
+
+CREATE TABLE solar.tesselated (
+	id integer not null
+);
+SELECT AddGeometryColumn('solar','tesselated','geom','31370','POLYGON', 3);
 
 CREATE TABLE  solar.explain_sh (
     tid integer not null,
