@@ -21,7 +21,7 @@ from .geom import (
     unit_vector,
 )
 from .sunpos import get_sun_position
-from .lingua import make_polyhedral, rows_with_geom, tesselate_to_shape
+from .lingua import make_polyhedral, rows_with_geom, tesselate_to_shape, make_point_from_center
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
@@ -120,7 +120,9 @@ def query_intersections(db, triangle, sunvec):
                             triangle.c + farvec)
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
-    select = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
+    select = rows_with_geom(
+        db, 'select_intersect',
+        (AsIs(polyhedr), AsIs(make_point_from_center(triangle), )), 1)
     results = map(lambda row: intersect_cache.get_solid(row), select)
     return list(results)
 

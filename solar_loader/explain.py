@@ -233,6 +233,9 @@ def make_task(day, tr, triangle_index):
     direct = []
     tot = []
 
+    time_exposed = []
+    time_rad = []
+
     for (ti, sunvec), row_intersect in zip(time_and_vec, its):
 
         def pp(t, trans_mat, rot_mat, geom):
@@ -267,10 +270,15 @@ def make_task(day, tr, triangle_index):
             elif 'solid' == t:
                 result.insert_shadow(ti.hour, 'solid', geom)
 
+        start_exposed = perf_counter()
         exposed_area = get_exposed_area(
-            tr, sunvec, (map(lambda r: r[1], row_intersect)), pp)
+            tr, sunvec, (map(lambda r: r[1], row_intersect)))#, pp)
+        time_exposed.append(perf_counter()- start_exposed)
 
+        start_rad = perf_counter()
         di, dr = compute_radiation(exposed_area, ti, tr)
+        time_rad.append(perf_counter() - start_rad)
+
         hours.append(str(ti.hour))
         sunvecs.append('({:.1f}, {:.1f}, {:.1f})'.format(
             sunvec[0], sunvec[1], sunvec[2]))
@@ -298,6 +306,14 @@ def make_task(day, tr, triangle_index):
             is_header = False
             sep = [' --- ' for _ in line]
             print('--- | --- | {}'.format('|'.join(sep)))
+
+    print('```')
+    print('time exposed total: {:.2f}   avg: {:.2f}'.format(
+        sum(time_exposed), sum(time_exposed)/len(time_exposed)))
+    print('time rad    total: {:.2f}   avg: {:.2f}'.format(
+        sum(time_rad),
+        sum(time_rad) / len(time_rad)))
+    print('```')
 
 
 def format_triangle(t):

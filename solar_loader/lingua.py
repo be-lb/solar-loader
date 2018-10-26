@@ -2,7 +2,7 @@ import math
 import logging
 import numpy as np
 from shapely import geometry, wkt
-from .geom import tesselate, angle_between
+from .geom import tesselate, angle_between, get_triangle_center
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,12 @@ def make_polyhedral(t0, t1):
 
     return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
         ', '.join(hs))
+
+
+def make_point_from_center(triangle):
+    p = get_triangle_center(triangle)
+    return 'ST_GeomFromText(\'POINT Z({:.2f} {:.2f} {:.2f})\', 31370)'.format(
+        *p)
 
 
 NOON = [0, 1]
@@ -190,4 +196,4 @@ def tesselate_to_shape(shape):
     
     returns a shapely.geometry.Multipolygon
     """
-    return  list(map(triangle_to_shape, tesselate(shape)))
+    return list(map(triangle_to_shape, tesselate(shape)))

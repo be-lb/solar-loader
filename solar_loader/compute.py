@@ -1,6 +1,7 @@
 import logging
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
+import traceback
 
 import numpy as np
 from psycopg2.extensions import AsIs
@@ -35,146 +36,29 @@ from .time import TimeCounter, generate_sample_days
 logger = logging.getLogger(__name__)
 
 
-def init_triangle(tim, gis_triangle):
-    center = gis_triangle.center
-    sunpos = get_sun_position(center, tim)
-
-    triangle_azimuth = gis_triangle.get_azimuth()
-    triangle_inclination = gis_triangle.get_inclination()
-
-    triangle_area = gis_triangle.area
-    triangle_rdiso = gis_triangle.get_rdiso()
-    triangle_rdiso_flat = gis_triangle.get_rdiso_flat()
-
-    return (center, sunpos, triangle_azimuth, triangle_inclination,
-            triangle_area, triangle_rdiso, triangle_rdiso_flat)
+def merge_it(intersection, it):
+    if intersection is not None:
+        return intersection.union(it)
+    return it
 
 
-# def get_intersections_for_triangle(gis_triangle, sunvec, db):
-#     sunvecunit = unit_vector(sunvec)
-
-#     nearvec = sunvecunit * 1.0  # 0.1
-#     farvec = sunvecunit * 200.0
-
-#     triangle_near = Triangle(gis_triangle.geom.a + nearvec,
-#                              gis_triangle.geom.b + nearvec,
-#                              gis_triangle.geom.c + nearvec)
-#     triangle_far = Triangle(gis_triangle.geom.a + farvec,
-#                             gis_triangle.geom.b + farvec,
-#                             gis_triangle.geom.c + farvec)
-#     polyhedr = make_polyhedral(triangle_near, triangle_far)
-
-#     return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
-
-# def get_exposed_area_bak(gis_triangle, sunvec, row_intersect):
-#     try:
-#         flat_mat = get_flattening_mat(sunvec)
-#     except GeometryMissingDimension:
-#         return gis_triangle.area
-
-#     flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
-
-#     triangle_2d = geometry.Polygon([
-#         flat_triangle.a[:2],
-#         flat_triangle.b[:2],
-#         flat_triangle.c[:2],
-#         flat_triangle.a[:2],
-#     ])
-
-#     intersection = []
-
-#     for row in row_intersect:
-#         # get the geometry
-#         solid = row[1]
-#         # apply same transformation than the flatten triangle
-#         flatten_solid = transform_multipolygon(flat_mat, solid)
-
-#         for s in flatten_solid:
-#             try:
-#                 it = triangle_2d.intersection(s)
-
-#                 if it.geom_type == 'Polygon':
-#                     intersection.append(it)
-#                 elif it.geom_type == 'MultiPolygon':
-#                     intersection.append(it)
-#                 else:
-#                     logger.error(
-#                         'triangle_2d.intersection gave {} : ignored'.format(
-#                             it.geom_type))
-
-#             except TopologicalError as e:
-#                 if not triangle_2d.is_valid:
-#                     logger.error('triangle_2d is not valid')
-#                     raise e
-
-#                 if not s.is_valid:
-#                     logger.error('S from flatten_solid is not valid')
-#                     # on peut passer
-#             except Exception as e:
-#                 logger.debug(str(e))
-#                 print(type(e))
-#                 raise e
-
-#     if len(intersection) == 0:
-#         return gis_triangle.area
-#     else:
-#         try:
-#             int_area = ops.cascaded_union(intersection).area
-#             return gis_triangle.area - (
-#                 int_area * gis_triangle.area / triangle_2d.area)
-#         except Exception as e:
-#             logger.error('Exception {}'.format(e))
-#             logger.error('Error cascaded union for {}'.format(intersection))
-#             logger.error('handle with gis_triangle.area')
-#             return gis_triangle.area
-
-# def t2p(t):
-#     return geometry.Polygon([
-#         t.a[:2],
-#         t.b[:2],
-#         t.c[:2],
-#         t.a[:2],
-#     ])
-
-
-def append_it(intersection, pp):
-    def inner(it):
+def union_it():
+    def inner(intersection, it):
         if it.geom_type == 'Polygon':
-            intersection.append(it)
-            pp(it)
+            return merge_it(intersection, it)
         elif it.geom_type == 'MultiPolygon':
-            # intersection.append(it)
             for g in it:
-                inner(g)
+                return inner(intersection, g)
         elif it.geom_type == 'GeometryCollection':
             for geom in it:
-                inner(geom)
+                return inner(intersection, geom)
 
-    #    else:
-    #       logger.error('append_it {}'.format(it.geom_type))
+        return intersection
 
     return inner
 
 
-def noop(t, trans_mat, rot_mat, geom):
-    pass
-
-
-class Once:
-    def __init__(self):
-        self.used = False
-
-    def take(self):
-        if self.used:
-            return False
-        self.used = True
-        return True
-
-
-once = Once()
-
-
-def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
+def get_exposed_area(gis_triangle, sunvec, row_intersect):
     try:
         center = gis_triangle.center
         trans_mat = translation_matrix(*(-center))
@@ -183,8 +67,6 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
     except GeometryMissingDimension:
         logger.error('Could not build a flattening matrix')
         return 1.0
-
-    # o = once.take()
 
     flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
 
@@ -195,55 +77,52 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
         flat_triangle.a[:2],
     ])
 
-    # print('t2d.area: {}'.format(triangle_2d.area))
+    intersection = None
+    exposed_rate = 1.0
+    unioner = union_it()
 
-    intersection = []
-    pp = partial(noop, 'append', trans_mat, rot_mat)
-    if post_process is not None:
-        pp = partial(post_process, 'append', trans_mat, rot_mat)
-    appender = append_it(intersection, pp)
-
-    pps = partial(noop, 'solid', trans_mat, rot_mat)
-    if post_process is not None:
-        pps = partial(post_process, 'solid', trans_mat, rot_mat)
-
-    for idx, solid in enumerate(row_intersect):
-        #print('solid {} {}'.format(idx, len(solid)))
+    for solid in row_intersect:
         # apply same transformation than the flatten triangle
-        flatten_solid = transform_multipolygon(
-            rot_mat, transform_multipolygon(trans_mat, solid))
+        flatten_solid = transform_multipolygon(flat_mat, solid)
 
         for s in flatten_solid:
-            pps(s)
             try:
-                appender(triangle_2d.intersection(s))
-            except TopologicalError as e:
-                if not triangle_2d.is_valid:
-                    logger.error('triangle_2d is not valid')
-                    raise e
+                intersection = unioner(intersection,
+                                       triangle_2d.intersection(s))
+                if intersection is not None:
+                    intersection_area_2d = intersection.area
+                    exposed_area_2d = triangle_2d.area - intersection_area_2d
+                    exposed_rate = exposed_area_2d / triangle_2d.area
+                if exposed_rate <= 0:
+                    return 0
 
-                if not s.is_valid:
-                    logger.error('S from flatten_solid is not valid')
-                    # on peut passer
-            except Exception as e:
-                logger.error(str(e))
-                raise e
+            # except TopologicalError as e:
+            #     if not triangle_2d.is_valid:
+            #         logger.error('triangle_2d is not valid')
+            #         raise e
 
-    if len(intersection) == 0:
-        return 1.0
-    else:
-        try:
-            intersection_area_2d = ops.cascaded_union(intersection).area
-            exposed_area_2d = triangle_2d.area - intersection_area_2d
-            exposed_rate = exposed_area_2d / triangle_2d.area
+            #     if not s.is_valid:
+            #         logger.error('S from flatten_solid is not valid')
+            #         # on peut passer
+            except Exception:
+                # traceback.print_exception()
+                # raise e
+                pass
 
-            return exposed_rate
+    return exposed_rate
+    # if intersection is None:
+    # else:
+    #     try:
+    #         intersection_area_2d = intersection.area
+    #         exposed_area_2d = triangle_2d.area - intersection_area_2d
+    #         exposed_rate = exposed_area_2d / triangle_2d.area
 
-        except Exception as e:
-            logger.error('Exception {}'.format(e))
-            logger.error('Error cascaded union for {}'.format(intersection))
-            logger.error('handle with gis_triangle.area')
-            return 1.0
+    #         return exposed_rate
+
+    #     except Exception as e:
+    #         logger.error('Exception {}'.format(e))
+    #         logger.error('handle with gis_triangle.area')
+    #         return 1.0
 
 
 # def worker(db, tmy, sample_rate, gis_triangles, with_shadows, day):
