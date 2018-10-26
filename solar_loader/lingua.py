@@ -13,7 +13,9 @@ def rows_with_geom(db, select, params, geom_index):
         try:
             row[geom_index] = wkt.loads(row[geom_index])
         except Exception as ex:
-            logger.error('could not read "{}"\n{}'.format(row[geom_index], ex))
+            logger.error('rows_with_geom: could not read "{}"\n{}'.format(
+                geom_index, ex))
+            logger.error('{}'.format(row))
             continue
         yield row
 
@@ -61,17 +63,17 @@ def make_polyhedral_bak(t0, t1):
 def make_polyhedral(t0, t1):
     hs = [
         triangle_to_wkt(t0.a, t0.b, t0.c),
-        # quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
-        triangle_to_wkt(t0.a, t1.a, t1.b),
-        triangle_to_wkt(t0.a, t1.b, t0.b),
+        quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
+        # triangle_to_wkt(t0.a, t1.a, t1.b),
+        # triangle_to_wkt(t0.a, t1.b, t0.b),
         #
-        # quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
-        triangle_to_wkt(t0.b, t1.b, t1.c),
-        triangle_to_wkt(t0.b, t1.c, t0.c),
+        quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
+        # triangle_to_wkt(t0.b, t1.b, t1.c),
+        # triangle_to_wkt(t0.b, t1.c, t0.c),
         #
-        # quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
-        triangle_to_wkt(t0.c, t1.c, t1.a),
-        triangle_to_wkt(t0.c, t1.a, t0.a),
+        quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        # triangle_to_wkt(t0.c, t1.c, t1.a),
+        # triangle_to_wkt(t0.c, t1.a, t0.a),
         #
         triangle_to_wkt(t1.a, t1.c, t1.b),
     ]

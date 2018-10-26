@@ -125,24 +125,59 @@ def query_intersections(db, triangle, sunvec):
     return list(results)
 
 
+def query_intersections_batch(db, triangle, time_and_vec):
+    values = []
+    for t, sunvec in time_and_vec:
+        nearvec = sunvec * 1.0
+        farvec = sunvec * 200.0
+        triangle_near = Triangle(triangle.a + nearvec, triangle.b + nearvec,
+                                 triangle.c + nearvec)
+        triangle_far = Triangle(triangle.a + farvec, triangle.b + farvec,
+                                triangle.c + farvec)
+        polyhedr = make_polyhedral(triangle_near, triangle_far)
+        values.append('(\'{}\', {})'.format(t.hour, polyhedr))
+
+    select = rows_with_geom(db, 'select_intersect_batch',
+                            (AsIs(','.join(values)), ), 1)
+
+    results = map(lambda row: (row[2], intersect_cache.get_solid(row)), select)
+    return list(results)
+
+
 def make_task(day, tr):
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
         sunvec = unit_vector(sunpos.coords - tr.center)
-        time_and_vec.append((ti, sunvec))
+        if sunpos.is_daylight:
+            time_and_vec.append((ti, sunvec))
 
     def chain(db, executor):
         rad = 0
         if tr.area > 0:
             if with_shadows:
-                get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
-                for (ti, sunvec), row_intersect in zip(
-                        time_and_vec,
-                        executor.map(
-                            get_intersections, time_and_vec, timeout=TIMEOUT)):
+                # get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
+                intersections = query_intersections_batch(
+                    db, tr.geom, time_and_vec)
+
+                for ti, sunvec in time_and_vec:
+                    row_intersect = []
+                    for it in intersections:
+                        if it[0] == str(ti.hour):
+                            row_intersect.append(it[1])
+                    # print(row_intersect)
+                    # map(
+                    #     lambda t: t[1],
+                    #     list(filter(lambda r: r[0] == str(ti.hour), intersections)))
                     exposed_area = get_exposed_area(tr, sunvec, row_intersect)
                     rad += compute_radiation(exposed_area, ti, tr)
+
+                # for (ti, sunvec), row_intersect in zip(
+                #         time_and_vec,
+                #         executor.map(
+                #             time_and_vec, timeout=TIMEOUT)):
+                #     exposed_area = get_exposed_area(tr, sunvec, row_intersect)
+                #     rad += compute_radiation(exposed_area, ti, tr)
 
             else:
                 for ti in day:
