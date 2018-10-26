@@ -76,10 +76,11 @@ class Result:
         self.tid += 1
         return i
 
-    def insert_triangle(self, h, exposed, geom):
+    def insert_triangle(self, tidx, h, exposed, geom):
         tid = self.get_id()
         self.triangles.append((
             tid,
+            tidx,
             h,
             exposed,
             geom,
@@ -100,14 +101,14 @@ class Result:
         ))
 
     def commit(self):
-        for tid, h, exposed, geom in self.triangles:
+        for tid, tidx, h, exposed, geom in self.triangles:
             geom_wkt = 'ST_GeomFromText(\'POLYGON Z{}\', 31370)'.format(
                 triangle_to_wkt(
                     geom.a,
                     geom.b,
                     geom.c,
                 ))
-            row = (tid, h, exposed, AsIs(geom_wkt))
+            row = (tid, tidx, h, exposed, AsIs(geom_wkt))
             db.exec('insert_explain_triangle', row)
 
         for hour, stype, geom in self.shadows:
@@ -172,15 +173,19 @@ class IntersectCache:
         id = row[0]
         if id not in self._cache:
             tes = tesselate_to_shape(row[1])
-            print('IntersectCache INSERT {} {}'.format(id, len(tes)))
-            self._cache[id] = tes # tesselate_to_shape(row[1])
+            # print('IntersectCache INSERT {} {}'.format(id, len(tes)))
+            self._cache[id] = tes  # tesselate_to_shape(row[1])
         return (id, self._cache[id])
-    
+
     def dump_cache(self):
         for id in self._cache:
-            c= self._cache[id]
+            c = self._cache[id]
             for geom in c:
-                db.exec('insert_tesselated', (id, AsIs('ST_GeomFromText(\'{}\', 31370)'.format(geom.wkt))))
+                db.exec(
+                    'insert_tesselated',
+                    (id, AsIs('ST_GeomFromText(\'{}\', 31370)'.format(
+                        geom.wkt))))
+
 
 intersect_cache = IntersectCache()
 
@@ -210,7 +215,7 @@ def query_intersections(triangle, sunvec, hour):
     return results
 
 
-def make_task(day, tr):
+def make_task(day, tr, triangle_index):
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
@@ -270,11 +275,12 @@ def make_task(day, tr):
         sunvecs.append('({:.1f}, {:.1f}, {:.1f})'.format(
             sunvec[0], sunvec[1], sunvec[2]))
         exposed.append('{:.2f}'.format(exposed_area))
-        diffuse.append(str(round(di / 1000)))
-        direct.append(str(round(dr / 1000)))
-        tot.append(str(round((di + dr) / 1000)))
+        diffuse.append(str(round(di)))
+        direct.append(str(round(dr)))
+        tot.append(str(round((di + dr))))
 
-        tid = result.insert_triangle(ti.hour, exposed_area, tr.geom)
+        tid = result.insert_triangle(triangle_index, ti.hour, exposed_area,
+                                     tr.geom)
         for r in row_intersect:
             result.insert_shadower(tid, r[0])
 
@@ -326,7 +332,7 @@ def process_tasks(roof_geometry, day):
         print('Elevation: {}'.format(t.tilt))
         print('Area:      {}'.format(t.area))
         print('```')
-        make_task(day, t)
+        make_task(day, t, i)
         print()
 
 

@@ -149,8 +149,9 @@ def append_it(intersection, pp):
         elif it.geom_type == 'GeometryCollection':
             for geom in it:
                 inner(geom)
+
     #    else:
-     #       logger.error('append_it {}'.format(it.geom_type))
+    #       logger.error('append_it {}'.format(it.geom_type))
 
     return inner
 
@@ -178,14 +179,14 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
         center = gis_triangle.center
         trans_mat = translation_matrix(*(-center))
         rot_mat = get_flattening_mat(sunvec)
-        flat_mat = rot_mat
+        flat_mat = trans_mat @ rot_mat
     except GeometryMissingDimension:
         logger.error('Could not build a flattening matrix')
         return 1.0
 
-    o = once.take()
+    # o = once.take()
 
-    flat_triangle = transform_triangle(rot_mat, transform_triangle(trans_mat, gis_triangle.geom))
+    flat_triangle = transform_triangle(flat_mat, gis_triangle.geom)
 
     triangle_2d = geometry.Polygon([
         flat_triangle.a[:2],
@@ -198,21 +199,22 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
 
     intersection = []
     pp = partial(noop, 'append', trans_mat, rot_mat)
-    # if o and post_process is not None:
-     #   pp = partial(post_process, 'append', trans_mat, rot_mat)
+    if post_process is not None:
+        pp = partial(post_process, 'append', trans_mat, rot_mat)
     appender = append_it(intersection, pp)
 
-    #pps = partial(noop, 'solid', trans_mat, rot_mat)
-    #if o and post_process is not None:
-     #   pps = partial(post_process, 'solid', trans_mat, rot_mat)
+    pps = partial(noop, 'solid', trans_mat, rot_mat)
+    if post_process is not None:
+        pps = partial(post_process, 'solid', trans_mat, rot_mat)
 
     for idx, solid in enumerate(row_intersect):
         #print('solid {} {}'.format(idx, len(solid)))
         # apply same transformation than the flatten triangle
-        flatten_solid = transform_multipolygon(rot_mat, transform_multipolygon(trans_mat, solid))
+        flatten_solid = transform_multipolygon(
+            rot_mat, transform_multipolygon(trans_mat, solid))
 
         for s in flatten_solid:
-        #    pps(s)
+            pps(s)
             try:
                 appender(triangle_2d.intersection(s))
             except TopologicalError as e:
@@ -228,7 +230,6 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect, post_process=None):
                 raise e
 
     if len(intersection) == 0:
-        print('No intersection')
         return 1.0
     else:
         try:

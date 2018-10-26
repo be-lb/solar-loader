@@ -1,17 +1,17 @@
 
--- DROP TABLE IF EXISTS solar.explain_res;
-DROP TABLE IF EXISTS solar.explain_sh;
-DROP TABLE IF EXISTS solar.explain_s;
-DROP TABLE IF EXISTS solar.polyhedrals;
-DROP TABLE IF EXISTS solar.tesselated;
+DROP TABLE IF EXISTS solar.explain_res CASCADE;
+DROP TABLE IF EXISTS solar.explain_sh CASCADE;
+DROP TABLE IF EXISTS solar.explain_s CASCADE;
+DROP TABLE IF EXISTS solar.polyhedrals CASCADE;
+DROP TABLE IF EXISTS solar.tesselated CASCADE;
 
-TRUNCATE TABLE solar.explain_res;
--- CREATE TABLE  solar.explain_res (
---     id integer not null,
---     hour integer not null,
---     exposed  decimal not null
--- );
--- SELECT AddGeometryColumn('solar','explain_res','geom','31370','POLYGON', 3);
+CREATE TABLE  solar.explain_res (
+    id integer not null,
+    idx integer not null,
+    hour integer not null,
+    exposed  decimal not null
+);
+SELECT AddGeometryColumn('solar','explain_res','geom','31370','POLYGON', 3);
 
 CREATE TABLE  solar.polyhedrals (
     hour integer not null,
