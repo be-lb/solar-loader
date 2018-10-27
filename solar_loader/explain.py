@@ -26,7 +26,7 @@ from .geom import (
     transform_triangle,
 )
 from .sunpos import get_sun_position
-from .lingua import make_polyhedral, rows_with_geom, triangle_to_wkt, tesselate_to_shape
+from .lingua import make_polyhedral, make_polygon, rows_with_geom, triangle_to_wkt, tesselate_to_shape,make_point_from_center, shape_to_triangle
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
@@ -172,12 +172,16 @@ class IntersectCache:
     def get_solid(self, row):
         id = row[0]
         if id not in self._cache:
+            start = perf_counter()
             tes = tesselate_to_shape(row[1])
             # print('IntersectCache INSERT {} {}'.format(id, len(tes)))
-            self._cache[id] = tes  # tesselate_to_shape(row[1])
-        return (id, self._cache[id])
+            self._cache[id] = (tes, perf_counter() - start)  # tesselate_to_shape(row[1])
+        return (id, self._cache[id][0])
 
     def dump_cache(self):
+        times = [i[1] for i in self._cache.values()]
+        print('Cache {} {}'.format(len(self._cache), sum(times)/ len(self._cache)))
+        return
         for id in self._cache:
             c = self._cache[id]
             for geom in c:
@@ -191,7 +195,7 @@ intersect_cache = IntersectCache()
 
 
 def query_intersections(triangle, sunvec, hour):
-    nearvec = sunvec * 0.1
+    nearvec = sunvec * 1.0
     farvec = sunvec * 200.0
     triangle_near = Triangle(triangle.a + nearvec, triangle.b + nearvec,
                              triangle.c + nearvec)
@@ -200,22 +204,23 @@ def query_intersections(triangle, sunvec, hour):
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
     start = perf_counter()
-    select = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1)
-    results = list(map(lambda row: intersect_cache.get_solid(row), select))
+    select = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr),AsIs(make_point_from_center(triangle)), ), 1)
+    # results = list(map(lambda row: intersect_cache.get_solid(row), select))
+    
 
     db.exec(
         'insert_polyhedral',
         (
             hour,
-            # db.explain('select_intersect', (AsIs(polyhedr), )),
             str(perf_counter() - start),
-            AsIs(polyhedr),
+            AsIs(make_polygon(triangle_near, triangle_far)),
         ))
 
-    return results
+    return list(select)
 
 
 def make_task(day, tr, triangle_index):
+    start_task = perf_counter()
     time_and_vec = []
     for ti in day:
         sunpos = get_sun_position(tr.center, ti)
@@ -224,7 +229,7 @@ def make_task(day, tr, triangle_index):
             time_and_vec.append((ti, sunvec))
 
     get_intersections = lambda tv: query_intersections(tr.geom, tv[1], tv[0].hour)
-    its = list(map(get_intersections, time_and_vec))
+    its = map(get_intersections, time_and_vec)
 
     hours = []
     sunvecs = []
@@ -313,6 +318,7 @@ def make_task(day, tr, triangle_index):
     print('time rad    total: {:.2f}   avg: {:.2f}'.format(
         sum(time_rad),
         sum(time_rad) / len(time_rad)))
+    print('time task:  {}'.format(perf_counter() - start_task))
     print('```')
 
 
@@ -329,7 +335,7 @@ def format_triangle(t):
 
 def process_tasks(roof_geometry, day):
 
-    for i, geom in enumerate(tesselate(roof_geometry)):
+    for i, geom in enumerate(map(shape_to_triangle, roof_geometry)):
         t = GisTriangle(
             geom,
             get_triangle_azimut(geom),
@@ -369,4 +375,6 @@ def analyze(roof_id, day):
     compute_radiation_roof(rows[0], day)
 
     result.commit()
-    intersect_cache.dump_cache()
+    # intersect_cache.dump_cache()
+
+

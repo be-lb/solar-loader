@@ -17,7 +17,7 @@ CREATE TABLE  solar.polyhedrals (
     hour integer not null,
     request text
 );
-SELECT AddGeometryColumn('solar','polyhedrals','geom','31370','POLYHEDRALSURFACE', 3);
+SELECT AddGeometryColumn('solar','polyhedrals','geom','31370','MULTIPOLYGON', 3);
 
 CREATE TABLE  solar.explain_s (
     hour integer not null,

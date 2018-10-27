@@ -81,7 +81,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
     exposed_rate = 1.0
     unioner = union_it()
 
-    for solid in row_intersect:
+    for i, solid in enumerate(row_intersect):
         # apply same transformation than the flatten triangle
         flatten_solid = transform_multipolygon(flat_mat, solid)
 
@@ -94,6 +94,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
                     exposed_area_2d = triangle_2d.area - intersection_area_2d
                     exposed_rate = exposed_area_2d / triangle_2d.area
                 if exposed_rate <= 0:
+                    # print('early return {}/{} '.format(i, len(list(row_intersect))))
                     return 0
 
             # except TopologicalError as e:
@@ -105,7 +106,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
             #         logger.error('S from flatten_solid is not valid')
             #         # on peut passer
             except Exception:
-                # traceback.print_exception()
+                traceback.print_exception()
                 # raise e
                 pass
 

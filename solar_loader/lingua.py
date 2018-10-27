@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from shapely import geometry, wkt
 from .geom import tesselate, angle_between, get_triangle_center
+from .records import Triangle
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,18 @@ def make_polyhedral(t0, t1):
         ', '.join(hs))
 
 
+def make_polygon(t0, t1):
+    hs = [
+        triangle_to_wkt(t0.a, t0.b, t0.c),
+        quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
+        quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
+        quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        triangle_to_wkt(t1.a, t1.c, t1.b),
+    ]
+
+    return 'ST_GeomFromText(\'MULTIPOLYGON Z({})\', 31370)'.format(
+        ', '.join(hs))
+
 def make_point_from_center(triangle):
     p = get_triangle_center(triangle)
     return 'ST_GeomFromText(\'POINT Z({:.2f} {:.2f} {:.2f})\', 31370)'.format(
@@ -114,6 +127,13 @@ def triangles_to_surface_cc(ts):
 def shape_to_obj(shape):
     return geometry.mapping(shape)
 
+def shape_to_triangle(shape):
+    coords = list(shape.exterior.coords)
+    return Triangle(
+        np.array(coords[0]),
+        np.array(coords[1]),
+        np.array(coords[2]),
+    )
 
 def triangle_to_shape(t):
     return geometry.Polygon([

@@ -1,5 +1,5 @@
 SELECT
-    gid, st_astext({solid.geometry})
+    gid, st_astext(ST_DelaunayTriangles({solid.geometry}))
 FROM
     {solid.table}
 WHERE
