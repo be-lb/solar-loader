@@ -30,6 +30,7 @@ from .lingua import make_polyhedral, make_polygon, rows_with_geom, triangle_to_w
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
+from .earcut import earcut
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,37 @@ def round5(f):
         mul += 1
     return mul * 5
 
+
+def tess_earcut(coords, ctor):
+    #print('tess_earcut {}'.format(list(coords)))
+    vertices = []
+    for c in coords:
+        vertices.append(c[0])
+        vertices.append(c[1])
+        vertices.append(c[2])
+    #print('vertices: {}'.format(vertices))
+    
+    index = earcut(vertices, dim=3)
+    #print('index: {}'.format(index))
+    
+    triangles = []
+    for i in range(0, len(index), 3):
+        ia = index[i] * 3
+        ib = index[i + 1] * 3
+        ic = index[i + 2] * 3
+        a = [vertices[ia],vertices[ia+1],vertices[ia+2]]
+        b = [vertices[ib],vertices[ib+1],vertices[ib+2]]
+        c = [vertices[ic],vertices[ic+1],vertices[ic+2]]
+        #print('> {} {} {}'.format(a, b , c))
+        triangles.append(ctor(a,b,c))
+        
+    return triangles
+        
+def ctor_triangle(a, b , c):
+    return Triangle(np.array(a),np.array(b),np.array(c))
+
+def ctor_polygon(a, b, c):
+    return shapely.geometry.Polygon([a,b,c,a])
 
 class Result:
     def __init__(self):
@@ -173,15 +205,15 @@ class IntersectCache:
         id = row[0]
         if id not in self._cache:
             start = perf_counter()
-            tes = tesselate_to_shape(row[1])
+            # tes = tesselate_to_shape(row[1])
             # print('IntersectCache INSERT {} {}'.format(id, len(tes)))
+            tes = [] 
+            for geom in row[1]:
+                tes.extend(tess_earcut(geom.exterior.coords, ctor_polygon))
             self._cache[id] = (tes, perf_counter() - start)  # tesselate_to_shape(row[1])
         return (id, self._cache[id][0])
 
     def dump_cache(self):
-        times = [i[1] for i in self._cache.values()]
-        print('Cache {} {}'.format(len(self._cache), sum(times)/ len(self._cache)))
-        return
         for id in self._cache:
             c = self._cache[id]
             for geom in c:
@@ -205,7 +237,7 @@ def query_intersections(triangle, sunvec, hour):
 
     start = perf_counter()
     select = rows_with_geom(db, 'select_intersect', (AsIs(polyhedr),AsIs(make_point_from_center(triangle)), ), 1)
-    # results = list(map(lambda row: intersect_cache.get_solid(row), select))
+    results = list(map(lambda row: intersect_cache.get_solid(row), select))
     
 
     db.exec(
@@ -216,7 +248,7 @@ def query_intersections(triangle, sunvec, hour):
             AsIs(make_polygon(triangle_near, triangle_far)),
         ))
 
-    return list(select)
+    return results
 
 
 def make_task(day, tr, triangle_index):
@@ -334,8 +366,12 @@ def format_triangle(t):
 
 
 def process_tasks(roof_geometry, day):
-
-    for i, geom in enumerate(map(shape_to_triangle, roof_geometry)):
+    
+    triangles = []
+    for poly in roof_geometry:
+        triangles.extend(tess_earcut(poly.exterior.coords, ctor_triangle))
+    
+    for i, geom in enumerate(triangles):
         t = GisTriangle(
             geom,
             get_triangle_azimut(geom),
