@@ -44,9 +44,9 @@ class SolarSimAdmin(admin.ModelAdmin):
         ('User', {
             'classes': ('collapse',),
             'fields': (
-                'annual_consumption_base',
-                'washing_machine_factor',
+                'energy_sobriety_factor',
                 'electric_water_heater_factor',
+                'electric_water_heater_min_consumption',
                 'electric_heating_factor',
                 'self_production',
             ),

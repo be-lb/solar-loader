@@ -364,17 +364,19 @@ class SolarSim(models.Model):
     )
 
     # user
-    annual_consumption_base = models.FloatField(
-        default=600,
-        help_text='Base of the annual consumption, in kWh'
-    )
-    washing_machine_factor = models.FloatField(
-        default=600,
-        help_text='Annual consumption of a washmachine, in kWh'
+    energy_sobriety_factor = models.FloatField(
+        default=0.8,
+        help_text='Change factor when user choose energy sobriety as behaviour'
     )
     electric_water_heater_factor = models.FloatField(
-        default=2336,
-        help_text='Annual consumption of a hot water heater, in kWh'
+        default=1.46,
+        help_text='Change factor for electric production of hot water with a \
+        pv heater'
+    )
+    electric_water_heater_min_consumption = models.FloatField(
+        default=1000,
+        help_text='Minimal supplementary electricity consumption for electric \
+        production of hot water with a pv heater, in kWh/year'
     )
     electric_heating_factor = models.FloatField(
         default=16500,
@@ -524,12 +526,12 @@ class SolarSim(models.Model):
                 'lift': self.obstacle_area_lift,
                 'existingSolarPannel': self.obstacle_area_existingSolarPannel,
             },
-            'annual_consumption_base':
-            self.annual_consumption_base,
-            'washing_machine_factor':
-            self.washing_machine_factor,
+            'energy_sobriety_factor':
+            self.energy_sobriety_factor,
             'electric_water_heater_factor':
             self.electric_water_heater_factor,
+            'electric_water_heater_min_consumption':
+            self.electric_water_heater_min_consumption,
             'electric_heating_factor':
             self.electric_heating_factor,
             'thermic_installation_cost':
