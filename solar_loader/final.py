@@ -5,6 +5,7 @@ from psycopg2.extensions import AsIs
 import django
 from django.conf import settings
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import traceback
 
 from .time import now
 from .store import Data
@@ -16,23 +17,26 @@ from .geom import (
     get_triangle_azimut,
     get_triangle_center,
     get_triangle_inclination,
-    tesselate,
+    tesselate_earcut,
+    ctor_triangle,
+    ctor_polygon,
     unit_vector,
 )
 from .sunpos import get_sun_position
-from .lingua import make_polyhedral, rows_with_geom
+from .lingua import make_polyhedral, rows_with_geom, tesselate_to_shape, make_point_from_center
 from .compute import get_exposed_area, get_roof_area
 from .rdiso import get_rdiso5
 from .radiation import compute_gk
 
 logger = logging.getLogger(__name__)
 
-django.setup()
+# django.setup()
 tmy = TMY(settings.SOLAR_TMY)
 
 sample_rate = getattr(settings, 'SOLAR_SAMPLE_RATE', 14)
 with_shadows = getattr(settings, 'SOLAR_WITH_SHADOWS', True)
 flat_threshold = getattr(settings, 'SOLAR_FLAT_THRESHOLD', 5)
+flat_area_rate = getattr(settings, 'SOLAR_FLAT_AREA_RATE', 0.57)
 optimal_azimuth = getattr(settings, 'SOLAR_OPTIMAL_AZIMUTH', 180)
 optimal_tilt = getattr(settings, 'SOLAR_OPTIMAL_TILT', 40)
 
@@ -56,11 +60,13 @@ def round5(f):
     return mul * 5
 
 
-def compute_radiation(exposed_area, tim, triangle):
+def compute_radiation(exposed_rate, tim, triangle):
     azimuth = triangle.azimuth
     tilt = triangle.tilt
-    # here we special case "flat" roofs
-    if tilt <= flat_threshold:
+
+    is_flat = tilt <= flat_threshold
+
+    if is_flat:
         azimuth = optimal_azimuth
         tilt = optimal_tilt
 
@@ -87,10 +93,27 @@ def compute_radiation(exposed_area, tim, triangle):
         rdiso_flat,
         rdiso)
 
-    diffuse = triangle.area * (radiation_global - radiation_direct)
-    direct = exposed_area * radiation_direct
+    diffuse = (radiation_global - radiation_direct)
+    direct = exposed_rate * radiation_direct
 
     return (diffuse + direct) * sample_rate
+
+
+class IntersectCache:
+    def __init__(self):
+        self._cache = dict()
+
+    def get_solid(self, row):
+        id = row[0]
+        if id not in self._cache:
+            triangles = []
+            for geom in row[1]:
+                triangles.extend(tesselate_earcut(geom.exterior.coords, ctor_polygon))
+            self._cache[id] = triangles
+        return self._cache[id]
+
+
+intersect_cache = IntersectCache()
 
 
 def query_intersections(db, triangle, sunvec):
@@ -102,7 +125,12 @@ def query_intersections(db, triangle, sunvec):
                             triangle.c + farvec)
     polyhedr = make_polyhedral(triangle_near, triangle_far)
 
-    return list(rows_with_geom(db, 'select_intersect', (AsIs(polyhedr), ), 1))
+    select = rows_with_geom(
+        db, 'select_intersect',
+        (AsIs(polyhedr), AsIs(make_point_from_center(triangle), )), 1)
+    results = map(lambda row: intersect_cache.get_solid(row), list(select))
+    
+    return results
 
 
 def make_task(day, tr):
@@ -114,17 +142,19 @@ def make_task(day, tr):
 
     def chain(db, executor):
         rad = 0
-        if with_shadows:
-            get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
-            for (ti, sunvec), row_intersect in zip(
-                    time_and_vec,
-                    executor.map(get_intersections, time_and_vec, timeout=TIMEOUT)):
-                exposed_area = get_exposed_area(tr, sunvec, row_intersect)
-                rad += compute_radiation(exposed_area, ti, tr)
+        if tr.area > 0:
+            if with_shadows:
+                get_intersections = lambda tv: query_intersections(db, tr.geom, tv[1])
+                for (ti, sunvec), row_intersect in zip(
+                        time_and_vec,
+                        executor.map(
+                            get_intersections, time_and_vec, timeout=TIMEOUT)):
+                    exposed_area = get_exposed_area(tr, sunvec, row_intersect)
+                    rad += compute_radiation(exposed_area, ti, tr)
 
-        else:
-            for ti in day:
-                rad += compute_radiation(tr.area, ti, tr)
+            else:
+                for ti in day:
+                    rad += compute_radiation(tr.area, ti, tr)
 
         return rad
 
@@ -134,7 +164,14 @@ def make_task(day, tr):
 def process_tasks(roof_geometry, db, executor):
     triangles = []
     days = generate_sample_days(sample_rate)
-    for geom in tesselate(roof_geometry):
+    tesselated = []
+    for poly in roof_geometry:
+        tesselated.extend(tesselate_earcut(poly.exterior.coords, ctor_triangle))
+        
+    n = len(tesselated)
+    if 0 == n:
+        return 0
+    for geom in tesselated:
         triangles.append(
             GisTriangle(
                 geom,
@@ -146,7 +183,7 @@ def process_tasks(roof_geometry, db, executor):
 
     tasks = [make_task(day, tr) for day, tr in it.product(days, triangles)]
 
-    return map(lambda t: t(db, executor), tasks)
+    return sum(map(lambda t: t(db, executor), tasks)) / n
 
 
 def compute_radiation_roof(node_name, row):
@@ -162,7 +199,7 @@ def compute_radiation_roof(node_name, row):
         (0.0, area, node_name, STATUS_PENDING, start_time, start_time, id))
     try:
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            total_rad = sum(process_tasks(geom, db, executor))
+            total_rad = process_tasks(geom, db, executor)
 
         res.exec(
             'insert_result',
@@ -172,12 +209,12 @@ def compute_radiation_roof(node_name, row):
         logger.error('Value error in compute_radiation_roof : {}'.format(ex))
         res.exec('insert_result',
                  (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
-        # raise ex
+        print(traceback.format_exc())
     except Exception as ex:
-        logger.error('Value error in compute_radiation_roof : {}'.format(ex))
+        logger.error('Exception in compute_radiation_roof : {}'.format(ex))
         res.exec('insert_result',
                  (0.0, area, node_name, STATUS_FAILED, start_time, now(), id))
-        # raise ex
+        print(traceback.format_exc())
 
 
 def compute_batches(node_name, batch_size):

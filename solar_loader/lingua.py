@@ -2,7 +2,8 @@ import math
 import logging
 import numpy as np
 from shapely import geometry, wkt
-from .geom import tesselate, angle_between
+from .geom import tesselate, angle_between, get_triangle_center
+from .records import Triangle
 
 logger = logging.getLogger(__name__)
 
@@ -61,23 +62,41 @@ def make_polyhedral_bak(t0, t1):
 def make_polyhedral(t0, t1):
     hs = [
         triangle_to_wkt(t0.a, t0.b, t0.c),
-        # quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
-        triangle_to_wkt(t0.a, t1.a, t1.b),
-        triangle_to_wkt(t0.a, t1.b, t0.b),
+        quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
+        #triangle_to_wkt(t0.a, t1.a, t1.b),
+        #triangle_to_wkt(t0.a, t1.b, t0.b),
         #
-        # quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
-        triangle_to_wkt(t0.b, t1.b, t1.c),
-        triangle_to_wkt(t0.b, t1.c, t0.c),
+        quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
+        #triangle_to_wkt(t0.b, t1.b, t1.c),
+        #triangle_to_wkt(t0.b, t1.c, t0.c),
         #
-        # quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
-        triangle_to_wkt(t0.c, t1.c, t1.a),
-        triangle_to_wkt(t0.c, t1.a, t0.a),
+        quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        #triangle_to_wkt(t0.c, t1.c, t1.a),
+        #triangle_to_wkt(t0.c, t1.a, t0.a),
         #
         triangle_to_wkt(t1.a, t1.c, t1.b),
     ]
 
     return 'ST_GeomFromText(\'POLYHEDRALSURFACE Z({})\', 31370)'.format(
         ', '.join(hs))
+
+
+def make_polygon(t0, t1):
+    hs = [
+        triangle_to_wkt(t0.a, t0.b, t0.c),
+        quad_to_wkt(t0.a, t1.a, t1.b, t0.b),
+        quad_to_wkt(t0.b, t1.b, t1.c, t0.c),
+        quad_to_wkt(t0.c, t1.c, t1.a, t0.a),
+        triangle_to_wkt(t1.a, t1.c, t1.b),
+    ]
+
+    return 'ST_GeomFromText(\'MULTIPOLYGON Z({})\', 31370)'.format(
+        ', '.join(hs))
+
+def make_point_from_center(triangle):
+    p = get_triangle_center(triangle)
+    return 'ST_GeomFromText(\'POINT Z({:.2f} {:.2f} {:.2f})\', 31370)'.format(
+        *p)
 
 
 NOON = [0, 1]
@@ -107,6 +126,22 @@ def triangles_to_surface_cc(ts):
 
 def shape_to_obj(shape):
     return geometry.mapping(shape)
+
+def shape_to_triangle(shape):
+    coords = list(shape.exterior.coords)
+    return Triangle(
+        np.array(coords[0]),
+        np.array(coords[1]),
+        np.array(coords[2]),
+    )
+
+def triangle_to_shape(t):
+    return geometry.Polygon([
+        t.a.tolist(),
+        t.b.tolist(),
+        t.c.tolist(),
+        t.a.tolist(),
+    ])
 
 
 def shape_to_feature(shape, id, props=dict()):
@@ -173,3 +208,12 @@ def triangle_to_geojson(t):
             ],
         }
     }
+
+
+def tesselate_to_shape(shape):
+    """
+    shape -- shapely.geometry.Geometry
+    
+    returns a shapely.geometry.Multipolygon
+    """
+    return list(map(triangle_to_shape, tesselate(shape)))

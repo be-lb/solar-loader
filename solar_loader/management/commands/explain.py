@@ -41,5 +41,5 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         roof_id = options['roof_id']
         day_n = options['day']
-        day = list(get_day(day_n))
+        day = list(get_day(day_n)) #[14:]
         analyze(roof_id, day)
