@@ -17,7 +17,9 @@ from .geom import (
     get_triangle_azimut,
     get_triangle_center,
     get_triangle_inclination,
-    tesselate,
+    tesselate_earcut,
+    ctor_triangle,
+    ctor_polygon,
     unit_vector,
 )
 from .sunpos import get_sun_position
@@ -104,7 +106,10 @@ class IntersectCache:
     def get_solid(self, row):
         id = row[0]
         if id not in self._cache:
-            self._cache[id] = tesselate_to_shape(row[1])
+            triangles = []
+            for geom in row[1]:
+                triangles.extend(tesselate_earcut(geom.exterior.coords, ctor_polygon))
+            self._cache[id] = triangles
         return self._cache[id]
 
 
@@ -123,8 +128,9 @@ def query_intersections(db, triangle, sunvec):
     select = rows_with_geom(
         db, 'select_intersect',
         (AsIs(polyhedr), AsIs(make_point_from_center(triangle), )), 1)
-    results = map(lambda row: intersect_cache.get_solid(row), select)
-    return list(results)
+    results = map(lambda row: intersect_cache.get_solid(row), list(select))
+    
+    return results
 
 
 def make_task(day, tr):
@@ -158,7 +164,10 @@ def make_task(day, tr):
 def process_tasks(roof_geometry, db, executor):
     triangles = []
     days = generate_sample_days(sample_rate)
-    tesselated = tesselate(roof_geometry)
+    tesselated = []
+    for poly in roof_geometry:
+        tesselated.extend(tesselate_earcut(poly.exterior.coords, ctor_triangle))
+        
     n = len(tesselated)
     if 0 == n:
         return 0

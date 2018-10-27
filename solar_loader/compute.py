@@ -106,7 +106,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
             #         logger.error('S from flatten_solid is not valid')
             #         # on peut passer
             except Exception:
-                traceback.print_exception()
+                traceback.print_exc()
                 # raise e
                 pass
 

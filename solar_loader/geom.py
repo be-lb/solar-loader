@@ -3,6 +3,7 @@ from functools import partial
 import numpy as np
 from shapely import geometry, ops
 from .records import Triangle
+from .earcut import earcut
 
 # from scipy.spatial.transform import Rotation
 
@@ -211,6 +212,36 @@ def get_triangle_flat_mat(t):
 def unit_vector(vector):
     """ Returns the unit vector of the vector.  """
     return vector / np.linalg.norm(vector)
+    
+    
+def tesselate_earcut(coords, ctor):
+
+    vertices = []
+    for c in coords:
+        vertices.append(c[0])
+        vertices.append(c[1])
+        vertices.append(c[2])
+    
+    index = earcut(vertices, dim=3)
+    
+    triangles = []
+    for i in range(0, len(index), 3):
+        ia = index[i] * 3
+        ib = index[i + 1] * 3
+        ic = index[i + 2] * 3
+        a = [vertices[ia],vertices[ia+1],vertices[ia+2]]
+        b = [vertices[ib],vertices[ib+1],vertices[ib+2]]
+        c = [vertices[ic],vertices[ic+1],vertices[ic+2]]
+        triangles.append(ctor(a,b,c))
+        
+    return triangles
+        
+def ctor_triangle(a, b , c):
+    return Triangle(np.array(a),np.array(b),np.array(c))
+
+def ctor_polygon(a, b, c):
+    return geometry.Polygon([a,b,c,a])
+
 
 
 # from https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
