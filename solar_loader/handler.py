@@ -54,12 +54,16 @@ def make_roof_props_from_row(solar_sim, row):
     r = float(row[IRRADIANCE])
     geom = row[GEOM]
     return {
-        'area': area,
-        'tilt': 90 - get_roof_tilt(geom),
-        'azimuth': get_roof_azimuth(geom),
-        'irradiance': (r / area) / 1000.0,
-        'productivity': (r / area / 1000.0) *
-        solar_sim.max_solar_productivity / solar_sim.max_solar_irradiance,
+        'area':
+        area,
+        'tilt':
+        90 - get_roof_tilt(geom),
+        'azimuth':
+        get_roof_azimuth(geom),
+        'irradiance':
+        r / 1000.0,
+        'productivity': (r / 1000.0) * solar_sim.max_solar_productivity /
+        solar_sim.max_solar_irradiance,
     }
 
 
@@ -93,7 +97,8 @@ def get_settings(request):
     else:
         return JsonResponse(
             {
-                'error': 'No SOLAR_SIMULATOR_SETTINGS entry in the \
+                'error':
+                'No SOLAR_SIMULATOR_SETTINGS entry in the \
 Django settings'
             },
             status=500)
@@ -154,8 +159,8 @@ def get_3d(request, capakey):
     sz = max(maxx - minx, maxy - miny)
 
     features = [
-        shape_to_feature(
-            s, idx, dict(is_exact=True)) for idx, s in enumerate(solids)
+        shape_to_feature(s, idx, dict(is_exact=True))
+        for idx, s in enumerate(solids)
     ]
 
     # box = 'Box3D(ST_GeomFromText(\'LINESTRING Z ({x0} {y0} 0,{x1} {y1} 1000)\', 31370))'.format(
@@ -168,7 +173,8 @@ def get_3d(request, capakey):
     #                           1):
     for row in rows_with_geom(data_store, 'select_within', (
             AsIs(center),
-            sz * 1.6, ), 1):
+            sz * 1.6,
+    ), 1):
         features.append(shape_to_feature(row[1], row[0], dict(is_exact=False)))
 
     # db = data_store
@@ -191,7 +197,8 @@ def get_spatial_ref_key(request, longitude, latitude):
     db = data_store
     rows = db.rows('select_ground_intersect', {}, (
         lon,
-        lat, ))
+        lat,
+    ))
     row_list = list(rows)
 
     capakey = None
