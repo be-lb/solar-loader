@@ -54,15 +54,12 @@ def make_roof_props_from_row(solar_sim, row):
     r = float(row[IRRADIANCE])
     geom = row[GEOM]
     return {
-        'area':
-        area,
-        'tilt':
-        90 - get_roof_tilt(geom),
-        'azimuth':
-        get_roof_azimuth(geom),
+        'area': area,
+        'tilt': 90 - get_roof_tilt(geom),
+        'azimuth': get_roof_azimuth(geom),
         'irradiance': (r / area) / 1000.0,
-        'productivity': (r / area / 1000.0) * solar_sim.max_solar_productivity
-        / solar_sim.max_solar_irradiance,
+        'productivity': (r / area / 1000.0) *
+        solar_sim.max_solar_productivity / solar_sim.max_solar_irradiance,
     }
 
 
@@ -139,11 +136,13 @@ def get_3d(request, capakey):
         x, y = roof_centroid.coords[0]
         axis = 'ST_GeomFromText(\'LINESTRING Z ({x} {y} 0, {x} {y} 1000)\', 31370)'.format(
             x=x, y=y)
+        start_point = 'ST_GeomFromText(\'POINT Z({x} {y} 0)\', 31370)'.format(
+            x=x, y=y)
 
         # print(axis)
 
         for row in rows_with_geom(data_store, 'select_intersect',
-                                  (AsIs(axis), ), 1):
+                                  (AsIs(axis), AsIs(start_point)), 1):
             solids.append(row[1])
 
     minx, miny, maxx, maxy = reduce(lambda acc, b: (
