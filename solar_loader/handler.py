@@ -19,6 +19,7 @@ from django.http import JsonResponse, Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from psycopg2.extensions import AsIs
+from markdown import markdown
 
 from .store import Data
 from .tmy import TMY
@@ -218,6 +219,10 @@ def get_solar_sim(request):
 def get_descriptions(request):
     data = dict()
     for desc in AdjustDescription.objects.all():
-        data[desc.widget_key] = desc.description.to_dict()
+        transformed = dict()
+        for k, v in desc.description.to_dict().items():
+            transformed[k] = markdown(v)
+
+        data[desc.widget_key] = transformed
 
     return JsonResponse(data)
