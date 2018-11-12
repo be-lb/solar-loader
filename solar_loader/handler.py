@@ -58,7 +58,7 @@ def make_roof_props_from_row(solar_sim, row):
         'area':
         area,
         'tilt':
-        90 - get_roof_tilt(geom),
+        get_roof_tilt(geom),
         'azimuth':
         get_roof_azimuth(geom),
         'irradiance':
