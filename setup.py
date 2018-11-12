@@ -20,8 +20,8 @@ classifiers = [
 ]
 
 install_requires = [
-    'django', 'numpy', 'psycopg2', 'shapely', 'click', 'attrs', 'munch',
-    'pysolar', 'pyproj'
+    'django', 'numpy', 'psycopg2', 'shapely', 'click', 'attrs', 'Markdown',
+    'munch', 'pysolar', 'pyproj'
 ]
 
 packages = find_packages()
