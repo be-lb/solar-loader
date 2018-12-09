@@ -225,6 +225,10 @@ class SolarSim(models.Model):
         default=0.23,
         help_text='Buying electricity price, in €/kWh'
     )
+    elec_selling_price = models.FloatField(
+        default=0.03,
+        help_text='Selling electricity price (for prosumers), in €/kWh'
+    )
     elec_index = models.FloatField(
         default=0.03,
         help_text='Yearly electricity price index, in %'
@@ -232,6 +236,10 @@ class SolarSim(models.Model):
     discount_rate = models.FloatField(
         default=0.04,
         help_text='Discount rate, in %'
+    )
+    cv_price = models.FloatField(
+        default=85,
+        help_text='Price of a certificat vert, in €'
     )
     cv_rate_switch_power = models.FloatField(
         default=5,
@@ -487,10 +495,14 @@ class SolarSim(models.Model):
             self.inflation_rate,
             'elec_buying_price':
             self.elec_buying_price,
+            'elec_selling_price':
+            self.elec_selling_price,
             'elec_index':
             self.elec_index,
             'discount_rate':
             self.discount_rate,
+            'cv_price':
+            self.cv_price,
             'cv_rate_switch_power':
             self.cv_rate_switch_power,
             'cv_rate_low_power':
