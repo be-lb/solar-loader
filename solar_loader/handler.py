@@ -151,6 +151,9 @@ def get_3d(request, capakey):
                                   (AsIs(axis), AsIs(start_point)), 1):
             solids.append(row[1])
 
+    if len(solids) == 0:
+        return JsonResponse(make_feature_collection([]))
+
     minx, miny, maxx, maxy = reduce(lambda acc, b: (
         min(acc[0], b[0]),
         min(acc[1], b[1]),
