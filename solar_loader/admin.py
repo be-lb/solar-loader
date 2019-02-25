@@ -68,6 +68,8 @@ class SolarSimAdmin(admin.ModelAdmin):
                 'onduleur_cost_factor',
                 'onduleur_replacement_rate',
                 'redevance_cost',
+                'pvheater_cost',
+                'battery_cost',
                 'inflation_rate',
                 'elec_buying_price',
                 'elec_selling_price',
