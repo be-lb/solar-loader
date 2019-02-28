@@ -103,6 +103,21 @@ def breakdown_cost_factor_default():
         }
     }
 
+def cv_rate_classes_default():
+    """ return the default values as JSON """
+    return [
+        {
+            'lower_limit': 0,
+            'upper_limit': 5,
+            'cv_rate': 2.4,
+        },
+        {
+            'lower_limit': 5,
+            'upper_limit': 9999999999,
+            'cv_rate': 1.8,
+        }
+    ]
+
 
 def self_production_default():
     """ return the default values as JSON """
@@ -272,6 +287,10 @@ class SolarSim(models.Model):
         default=0.0075,
         help_text='Rate of maintenance cost with respect to the total \
         photovoltaic installation price'
+    )
+    cv_rate_classes = JSONField(
+        default=cv_rate_classes_default,
+        help_text='Classes of Certificat verts rate by installed power in kWc.'
     )
 
     # roof
@@ -509,6 +528,8 @@ class SolarSim(models.Model):
             self.cv_rate_low_power,
             'cv_rate_high_power':
             self.cv_rate_high_power,
+            'cv_rate_classes':
+            self.cv_rate_classes,
             'cv_time':
             self.cv_time,
             'cv_end_of_compensation_year':
