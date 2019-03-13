@@ -1,6 +1,8 @@
 from django.db import models
 from jsonfield import JSONField
-from api.models import message_field
+
+# FIXME(pm) use lingua instead
+from api.models.message import message_field
 
 
 def thermic_production_default():
