@@ -292,7 +292,7 @@ class SolarSim(models.Model):
     )
     cv_rate_classes = JSONField(
         default=cv_rate_classes_default,
-        help_text='Classes of Certificat verts rate by installed power in kWc.'
+        help_text='Classes of Certificat verts rate by installed power in kWc. Each certificat vert rate (`cv_rate`) value is applied for the range of installed power between its respective `lower_limit` and `upper_limit` values. The larger (the last) `upper_limit` must be large enough to apply in any situation (e.g., 9999999999 kWc).'
     )
 
     # roof
