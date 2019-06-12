@@ -120,6 +120,10 @@ def cv_rate_classes_default():
         }
     ]
 
+def cv_rate_classes_default_table():
+    """ return the default values as table """
+    return '0;5;2.4\n5;9999999999;1.8'
+
 
 def self_production_default():
     """ return the default values as JSON """
@@ -290,9 +294,18 @@ class SolarSim(models.Model):
         help_text='Rate of maintenance cost with respect to the total \
         photovoltaic installation price'
     )
-    cv_rate_classes = JSONField(
-        default=cv_rate_classes_default,
-        help_text='Classes of Certificat verts rate by installed power in kWc. Each certificat vert rate (`cv_rate`) value is applied for the range of installed power between its respective `lower_limit` and `upper_limit` values. The larger (the last) `upper_limit` must be large enough to apply in any situation (e.g., 9999999999 kWc).'
+    cv_rate_classes = models.TextField(
+        default=cv_rate_classes_default_table,
+        help_text='<p>Classes of Certificat verts rate by installed power in kWc. \
+        The first column is the lower limit (kWc), the 2nd column the upper limit (kWc) and \
+        the 3rd the value of the cv_rate (ratio). You can add as many lines as needed. \
+        Each certificat vert rate (3rd column) value is applied for the range of \
+        installed power between its respective (1st column) and (2nd column) \
+        values. The larger (the last) second column value must be large enough to \
+        apply in any situation (e.g., 9999999999 kWc).<p> \
+        <p><b>Example:</b></p><p>0;5;2.4<br>5;9999999999;1.8</p> \n \
+        <p>means: cv_rate = 2.4 for installations between 0 and 5 kWc and cv_rate = 1.8 for \
+        installations above 5 kWc.</p>'
     )
 
     # roof
@@ -494,6 +507,28 @@ class SolarSim(models.Model):
     thermic_production = JSONField(default=thermic_production_default)
 
 
+    def compute_cv_rate_classes_in_json(self):
+        """
+        Generate a json from cv_rate_classes :
+        each line is a class with value separated by ';'
+        (i.e. 'limit_min ; limit_max ; cv_value')
+        """
+        # todo : à améliorer : si cv_rate_classes est du json valide -> l'afficher
+        json_ret = ''
+        lines = self.cv_rate_classes.split('\n')
+        if lines == 0:
+            return cv_rate_classes_default()
+        else:
+            for line in lines:
+                elem = line.split(';')
+                if len(elem) == 3 :
+                    json_ret += '{' + '\'lower_limit\': {0}, \'upper_limit\': {1}, \'cv_rate\': {2}'.format(
+                        elem[0], elem[1], elem[2]) + '},'
+                else:
+                    return cv_rate_classes_default()
+        return json_ret[:-1]
+
+
     def as_dict(self):
         return {
             'max_power':
@@ -531,7 +566,7 @@ class SolarSim(models.Model):
             'cv_rate_high_power':
             self.cv_rate_high_power,
             'cv_rate_classes':
-            self.cv_rate_classes,
+            self.compute_cv_rate_classes_in_json(),
             'cv_time':
             self.cv_time,
             'cv_end_of_compensation_year':
