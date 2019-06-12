@@ -109,13 +109,13 @@ def cv_rate_classes_default():
     """ return the default values as JSON """
     return [
         {
-            'lower_limit': 0,
-            'upper_limit': 5,
+            'lower_limit': 0.0,
+            'upper_limit': 5.0,
             'cv_rate': 2.4,
         },
         {
-            'lower_limit': 5,
-            'upper_limit': 9999999999,
+            'lower_limit': 5.0,
+            'upper_limit': 9999999999.0,
             'cv_rate': 1.8,
         }
     ]
