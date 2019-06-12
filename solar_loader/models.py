@@ -514,19 +514,22 @@ class SolarSim(models.Model):
         (i.e. 'limit_min ; limit_max ; cv_value')
         """
         # todo : à améliorer : si cv_rate_classes est du json valide -> l'afficher
-        json_ret = ''
-        lines = self.cv_rate_classes.split('\n')
-        if lines == 0:
+        ret = []
+        lines = self.cv_rate_classes.splitlines()
+        if len(lines) == 0:
             return cv_rate_classes_default()
         else:
             for line in lines:
-                elem = line.split(';')
-                if len(elem) == 3 :
-                    json_ret += '{' + '\'lower_limit\': {0}, \'upper_limit\': {1}, \'cv_rate\': {2}'.format(
-                        elem[0], elem[1], elem[2]) + '},'
-                else:
+                try:
+                    elem = line.split(';')
+                    ret.append({
+                        "lower_limit": float(elem[0]),
+                        "upper_limit": float(elem[1]),
+                        "cv_rate": float(elem[2])
+                    })
+                except (ValueError, IndexError):
                     return cv_rate_classes_default()
-        return json_ret[:-1]
+        return ret
 
 
     def as_dict(self):
