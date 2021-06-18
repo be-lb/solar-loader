@@ -540,56 +540,31 @@ class SolarSim(models.Model):
 
     def as_dict(self):
         return {
-            'max_power':
-            self.max_power,
-            'co2_emissions_by_kwh':
-            self.co2_emissions_by_kwh,
-            'meter_cost':
-            self.meter_cost,
-            'onduleur_cost_factor':
-            self.onduleur_cost_factor,
-            'onduleur_replacement_rate':
-            self.onduleur_replacement_rate,
-            'redevance_cost':
-            self.redevance_cost,
-            'pvheater_cost':
-            self.pvheater_cost,
-            'battery_cost':
-            self.battery_cost,
-            'inflation_rate':
-            self.inflation_rate,
-            'elec_buying_price':
-            self.elec_buying_price,
-            'elec_selling_price':
-            self.elec_selling_price,
-            'elec_index':
-            self.elec_index,
-            'discount_rate':
-            self.discount_rate,
-            'cv_price':
-            self.cv_price,
-            'cv_rate_switch_power':
-            self.cv_rate_switch_power,
-            'cv_rate_low_power':
-            self.cv_rate_low_power,
-            'cv_rate_high_power':
-            self.cv_rate_high_power,
-            'cv_rate_classes':
-            self.compute_cv_rate_classes_in_json(),
-            'cv_time':
-            self.cv_time,
-            'cv_end_of_compensation_year':
-            self.cv_end_of_compensation_year,
-            'production_yearly_loss_index':
-            self.production_yearly_loss_index,
-            'maintenance_cost_factor':
-            self.maintenance_cost_factor,
-            'max_solar_productivity':
-            self.max_solar_productivity,
-            'flat_roof_tilt':
-            self.flat_roof_tilt,
-            'low_productivity_limit':
-            self.low_productivity_limit,
+            'max_power': self.max_power,
+            'co2_emissions_by_kwh': self.co2_emissions_by_kwh,
+            'meter_cost': self.meter_cost,
+            'onduleur_cost_factor': self.onduleur_cost_factor,
+            'onduleur_replacement_rate': self.onduleur_replacement_rate,
+            'redevance_cost': self.redevance_cost,
+            'pvheater_cost': self.pvheater_cost,
+            'battery_cost': self.battery_cost,
+            'inflation_rate': self.inflation_rate,
+            'elec_buying_price': self.elec_buying_price,
+            'elec_selling_price': self.elec_selling_price,
+            'elec_index': self.elec_index,
+            'discount_rate': self.discount_rate,
+            'cv_price': self.cv_price,
+            'cv_rate_switch_power': self.cv_rate_switch_power,
+            'cv_rate_low_power': self.cv_rate_low_power,
+            'cv_rate_high_power': self.cv_rate_high_power,
+            'cv_rate_classes': self.compute_cv_rate_classes_in_json(),
+            'cv_time': self.cv_time,
+            'cv_end_of_compensation_year': self.cv_end_of_compensation_year,
+            'production_yearly_loss_index': self.production_yearly_loss_index,
+            'maintenance_cost_factor': self.maintenance_cost_factor,
+            'max_solar_productivity': self.max_solar_productivity,
+            'flat_roof_tilt': self.flat_roof_tilt,
+            'low_productivity_limit': self.low_productivity_limit,
             'medium_solar_productivity':self.medium_solar_productivity,
             'max_solar_irradiance':self.max_solar_irradiance,
             'lost_space_rate': self.lost_space_rate,
