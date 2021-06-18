@@ -1,5 +1,6 @@
 from django.db import models
 from jsonfield import JSONField
+from json import loads
 
 # FIXME(pm) use lingua instead
 from api.models.message import message_field
@@ -175,6 +176,11 @@ def self_production_default():
         }
     }
 
+
+def ensure_obj(obj):
+    if isinstance(obj, (str,)):
+        return loads(obj)
+    return obj
 
 
 class SolarSim(models.Model):
@@ -586,10 +592,8 @@ class SolarSim(models.Model):
             self.low_productivity_limit,
             'medium_solar_productivity':self.medium_solar_productivity,
             'max_solar_irradiance':self.max_solar_irradiance,
-            'lost_space_rate':
-            self.lost_space_rate,
-            'obstacle_default_rate':
-            self.obstacle_default_rate,
+            'lost_space_rate': self.lost_space_rate,
+            'obstacle_default_rate': self.obstacle_default_rate,
             'obstacle': {
                 'chimneySmoke': self.obstacle_area_chimneySmoke,
                 'velux': self.obstacle_area_velux,
@@ -599,70 +603,52 @@ class SolarSim(models.Model):
                 'lift': self.obstacle_area_lift,
                 'existingSolarPannel': self.obstacle_area_existingSolarPannel,
             },
-            'energy_sobriety_factor':
-            self.energy_sobriety_factor,
-            'electric_water_heater_factor':
-            self.electric_water_heater_factor,
-            'electric_water_heater_min_consumption':
-            self.electric_water_heater_min_consumption,
-            'electric_heating_factor':
-            self.electric_heating_factor,
-            'thermic_installation_cost':
-            self.thermic_installation_cost,
-            'thermic_maintenance_cost':
-            self.thermic_maintenance_cost,
-            'max_liter_per_day':
-            self.max_liter_per_day,
-            'min_thermic_area':
-            self.min_thermic_area,
-            'energetic_cost_factor':
-            dict(
+            'energy_sobriety_factor': self.energy_sobriety_factor,
+            'electric_water_heater_factor': self.electric_water_heater_factor,
+            'electric_water_heater_min_consumption': self.electric_water_heater_min_consumption,
+            'electric_heating_factor': self.electric_heating_factor,
+            'thermic_installation_cost': self.thermic_installation_cost,
+            'thermic_maintenance_cost': self.thermic_maintenance_cost,
+            'max_liter_per_day': self.max_liter_per_day,
+            'min_thermic_area': self.min_thermic_area,
+            'energetic_cost_factor': dict(
                 Belgium=self.energetic_cost_factor_belgium,
                 Europe=self.energetic_cost_factor_europe,
                 China=self.energetic_cost_factor_china,
             ),
-            'breakdown_cost_factor':
-            self.breakdown_cost_factor,
-            'pv_yield':
-            dict(
+            'breakdown_cost_factor': self.breakdown_cost_factor,
+            'pv_yield': dict(
                 poly=self.pv_yield_poly,
                 mono=self.pv_yield_mono,
                 mono_high=self.pv_yield_mono_high,
             ),
-            'pv_cost':
-            dict(
+            'pv_cost': dict(
                 poly=self.pv_cost_poly,
                 mono=self.pv_cost_mono,
                 mono_high=self.pv_cost_mono_high,
             ),
-            'self_production':
-            self.self_production,
-            'hot_water_producer_yield':
-            dict(
+            'self_production': self.self_production,
+            'hot_water_producer_yield': dict(
                 gas=self.hot_water_producer_yield_gas,
                 fuel=self.hot_water_producer_yield_fuel,
                 electric=self.hot_water_producer_yield_electric,
             ),
-            'hot_water_energy_cost':
-            dict(
+            'hot_water_energy_cost': dict(
                 gas=self.hot_water_energy_cost_gas,
                 fuel=self.hot_water_energy_cost_fuel,
                 electric=self.hot_water_energy_cost_electric,
             ),
-            'hot_water_energy_cost_index':
-            dict(
+            'hot_water_energy_cost_index': dict(
                 gas=self.hot_water_energy_cost_index_gas,
                 fuel=self.hot_water_energy_cost_index_fuel,
                 electric=self.hot_water_energy_cost_index_electric,
             ),
-            'co2_emissions_by_kwh_thermic':
-            dict(
+            'co2_emissions_by_kwh_thermic': dict(
                 gas=self.co2_emissions_by_kwh_thermic_gas,
                 fuel=self.co2_emissions_by_kwh_thermic_fuel,
                 electric=self.co2_emissions_by_kwh_thermic_electric,
             ),
-            'thermic_production':
-            self.thermic_production,
+            'thermic_production': self.thermic_production,
         }
 
 
