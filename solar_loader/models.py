@@ -1,5 +1,5 @@
 from django.db import models
-from jsonfield import JSONField
+from django.db.models import JSONField
 from json import loads
 
 # FIXME(pm) use lingua instead
