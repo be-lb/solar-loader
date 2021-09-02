@@ -1,5 +1,8 @@
 from django.db import models
-from django.db.models import JSONField
+try:
+    from django.db.models import JSONField
+except ImportError:
+    from django.contrib.postgres.fields import JSONField
 from json import loads
 
 # FIXME(pm) use lingua instead
