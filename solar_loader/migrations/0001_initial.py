@@ -4,7 +4,10 @@ from __future__ import unicode_literals
 
 from django.db import migrations, models
 import django.db.models.deletion
-import jsonfield.fields
+try:
+    from jsonfield.fields import JSONField
+except Exception:
+    from django.db.models import JSONField
 
 
 class Migration(migrations.Migration):
@@ -34,7 +37,7 @@ class Migration(migrations.Migration):
                 ('energetic_cost_factor_belgium', models.FloatField()),
                 ('energetic_cost_factor_europe', models.FloatField()),
                 ('energetic_cost_factor_china', models.FloatField()),
-                ('thermic_production', jsonfield.fields.JSONField(default=dict)),
+                ('thermic_production', JSONField(default=dict)),
             ],
         ),
     ]

@@ -3,7 +3,10 @@
 from __future__ import unicode_literals
 
 from django.db import migrations
-import jsonfield.fields
+try:
+    from jsonfield.fields import JSONField
+except Exception:
+    from django.db.models import JSONField
 import solar_loader.models
 
 
@@ -17,6 +20,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='solarsim',
             name='cv_rate_classes',
-            field=jsonfield.fields.JSONField(default=solar_loader.models.cv_rate_classes_default, help_text='Classes of Certificat verts rate by installed power in kWc.'),
+            field=JSONField(default=solar_loader.models.cv_rate_classes_default, help_text='Classes of Certificat verts rate by installed power in kWc.'),
         ),
     ]

@@ -3,7 +3,10 @@
 from __future__ import unicode_literals
 
 from django.db import migrations, models
-import jsonfield.fields
+try:
+    from jsonfield.fields import JSONField
+except Exception:
+    from django.db.models import JSONField
 import solar_loader.models
 
 
@@ -27,7 +30,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='solarsim',
             name='breakdown_cost_factor',
-            field=jsonfield.fields.JSONField(default=solar_loader.models.breakdown_cost_factor_default, help_text='Breakdown of the energetic cost for a photovoltaic         installation, by origin of the technology.'),
+            field=JSONField(default=solar_loader.models.breakdown_cost_factor_default, help_text='Breakdown of the energetic cost for a photovoltaic         installation, by origin of the technology.'),
         ),
         migrations.AlterField(
             model_name='solarsim',
@@ -252,7 +255,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='solarsim',
             name='self_production',
-            field=jsonfield.fields.JSONField(default=solar_loader.models.self_production_default, help_text='Table of self production rates, for different         user energetic profiles and self-production ratio'),
+            field=JSONField(default=solar_loader.models.self_production_default, help_text='Table of self production rates, for different         user energetic profiles and self-production ratio'),
         ),
         migrations.AlterField(
             model_name='solarsim',

@@ -1,16 +1,16 @@
 from django.contrib import admin
-import jsonfield
+# import jsonfield
 
 from .models import SolarSim, AdjustDescription
 
 
-class JSONWidget(jsonfield.widgets.JSONWidget):
-    def render(self, name, value, **kwargs):
-        return super().render(name, value, kwargs.get('attrs'))
+# class JSONWidget(jsonfield.widgets.JSONWidget):
+#     def render(self, name, value, **kwargs):
+#         return super().render(name, value, kwargs.get('attrs'))
 
 
 class SolarSimAdmin(admin.ModelAdmin):
-    formfield_overrides = {jsonfield.JSONField: {'widget': JSONWidget}}
+    # formfield_overrides = {jsonfield.JSONField: {'widget': JSONWidget}}
 
     list_display = (
         'name',
