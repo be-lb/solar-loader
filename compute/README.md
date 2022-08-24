@@ -35,6 +35,8 @@ The first step consists of integrating these datasets into a PostgreSQL dump tha
 
 ## App
 
+![schema](./schema.png)
+
 The Django application will provide two commands. First to setup a `results` table that will record irradiance values (plus state of the computation), and second to actually run a compute node. The app is the actual `solar_loader` on top of cartostation. It does mean that one must first have a working, if minimal, cartostation setup.
 
 The whole process then depends on Django and solar_loader settings. The main idea of these settings is that database connections are regular Django connections declared in the `DATABASES` setting, whereas actual structures and names of tables are described in the `SOLAR_TABLES` setting. This being the result of not representing the data by means of Django models at development time in order to accomodate various deployment schemes across teams.
@@ -179,3 +181,5 @@ optional arguments:
 A compute node is generally run alongside a powerful or several database(s) serving the data gathered in the first step (and for which the dump is intended) in order to optimize workloads. Because runs just "steal" work from the `results` table, they can be started and stopped in any order and time. If some node is believed to have misbehaved, clearing its work is just a matter of updating corresponding records with a `compute_status` at TODO, next runs will pick up these roofs. Compute nodes wil stop themselves when there's not anymore work to get.
 
 Note that this command will try to run as much processes as available CPUs (up to 32), and basically run these CPUs at 100%. Also note that these processes will maintain a rather large amount of connections to the database servers, those should be set with an adjusted `max_connections` and relevant other settings.
+
+Regarding the infrastructure, notes from the first run in [note-radiations.md](../note-radiations.md) are still relevant. To summarize, a roof is processed every 40 seconds and a cluster around a 32vCPU compute node can then process circa 69120 roof a day.

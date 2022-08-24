@@ -1,6 +1,5 @@
 # methodology
 
-
 All computations are done after decomposing roof polygons into triangles.
 
 Irradiance is computed for each triangle based on tilt, azimuth and shadows.
@@ -8,7 +7,6 @@ Irradiance is computed for each triangle based on tilt, azimuth and shadows.
 A base irradiance is obtained from both a TMY and a function provided by meteotest.
 
 This base irradiance is then adjusted with the amount of shadows falling onto the triangle.
-
 
 ## Shadows
 
@@ -30,23 +28,23 @@ We've had a hint from the flemish team that a sample of a day every 14 days coul
 TODO numbrers
 
 ### cli
-On the reproductible front, as part of the Django application that is the heart of solar-loader, we've developed a command line interface to run some of the tasks needed by the loader.
 
+On the reproductible front, as part of the Django application that is the heart of solar-loader, we've developed a command line interface to run some of the tasks needed by the loader.
 
 ## The run
 
 The fact. The whole computation in sequence to obtain radiations of exposed parts of a roof with a sample rate of 14 days takes an average of 45 seconds, and we've got a bit more than a million roofs to process. As is, it would mean a 520 days time frame.
 
-The chance we have is that each triangle can be process in isolation, bearing no dependency to other triangles. It calls for parallelism. If Python is well known to being slow at computing, which in this case is mitigated byt using bindings to high performance libraries, namely numpy and geos, it comes with ```concurrent.future``` that makes it easier to achieve the kind of parallelism that we need here.
+The chance we have is that each triangle can be process in isolation, bearing no dependency to other triangles. It calls for parallelism. If Python is well known to being slow at computing, which in this case is mitigated byt using bindings to high performance libraries, namely numpy and geos, it comes with `concurrent.future` that makes it easier to achieve the kind of parallelism that we need here.
 
-```ProcessPoolExecutor``` to run local computations with Shapely on each CPU
-```ThreadPoolExecutor``` to run batches of queries on PostGIS
+`ProcessPoolExecutor` to run local computations with Shapely on each CPU
+`ThreadPoolExecutor` to run batches of queries on PostGIS
 
 The experiment has been ran on Digital Ocean, which offers affordable compute units with a simple interface.
 DO instances come in 2 types, "standard" and "CPU optimized", we only used "standard" ones for this experiment, and even though not measurable beforehand, we can expect some improvements with "CPU optimized" instances.
 
- - 1   compute: 24 vCPU, 128GB, $0.952/hour
- - 2+1 postgis:  8 vCPU,  32GB, $0.238/hour
+- 1 compute: 24 vCPU, 128GB, $0.952/hour
+- 2+1 postgis: 8 vCPU, 32GB, $0.238/hour
 
 ```sh
 time solar-loader all_rad --limit 512 2> /dev/null
@@ -75,8 +73,11 @@ cpu_cost * total_time
 
 Leaving potential performances improvement aside.
 
-
 ## automation
+
+moved to [compute/README.md](./compute/README.md)
+
+<!--
 
 Part of the setup has already been automated in lot-1, that is the building of a complete source dataset. Automating the compute part is a bit more difficult in  that sense that it would be tied to a cloud provider. Instead, what follows is a step by step guide that ought to be "portable" across cloud providers.
 
@@ -182,4 +183,4 @@ TODO
 
 
 
-### results
+### results -->
