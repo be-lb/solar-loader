@@ -6,7 +6,6 @@ import traceback
 import numpy as np
 from psycopg2.extensions import AsIs
 from shapely import geometry, ops
-from shapely.geos import TopologicalError
 
 from .geom import (
     GeometryMissingDimension,
