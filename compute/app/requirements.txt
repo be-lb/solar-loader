@@ -1,4 +1,4 @@
-cryptography==3.4.7
+cryptography==39.0.1
 diskcache==5.2.1
 Django==3.2.5
 django-appconf==1.0.4
