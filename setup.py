@@ -1,34 +1,42 @@
 from setuptools import setup, find_packages
 
-version = '1.0.0'
+version = "1.0.0"
 
-name = 'solar_loader'
-description = 'load radiation data in the scope of solar project for IBGE'
-url = 'https://gitlab.com/atelier-cartographique/be-lb/solar-loader'
-author = 'Atelier Cartographique'
-author_email = 'contact@atelier-cartographique.be'
-license = 'Affero GPL3'
+name = "solar_loader"
+description = "load radiation data in the scope of solar project for IBGE"
+url = "https://gitlab.com/atelier-cartographique/be-lb/solar-loader"
+author = "Atelier Cartographique"
+author_email = "contact@atelier-cartographique.be"
+license = "Affero GPL3"
 
 classifiers = [
-    'Development Status :: 3 - Alpha',
-    'Intended Audience :: Developers',
-    'Topic :: Software Development :: Build Tools',
-    'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
-    'Operating System :: POSIX',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3.5',
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.5",
 ]
 
 install_requires = [
-    'django', 'numpy', 'psycopg2', 'shapely', 'click', 'attrs', 'Markdown',
-    'munch', 'pysolar', 'pyproj'
+    "django",
+    "numpy",
+    "psycopg2-binary",
+    "shapely",
+    "click",
+    "attrs",
+    "Markdown",
+    "munch",
+    "pysolar",
+    "pyproj",
 ]
 
 packages = find_packages()
 
 entry_points = {
-    'console_scripts': [
-        'solar-loader=solar_loader.main:main',
+    "console_scripts": [
+        "solar-loader=solar_loader.main:main",
     ],
 }
 
@@ -44,4 +52,5 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     classifiers=classifiers,
-    entry_points=entry_points)
+    entry_points=entry_points,
+)
