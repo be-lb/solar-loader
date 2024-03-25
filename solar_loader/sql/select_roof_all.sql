@@ -1,7 +1,7 @@
 SELECT
-    r.id, st_astext(r.{roof.geometry})
+    r.gml_id,
+    st_astext(r.{ roof.geometry })
 FROM
-    {roof.table} r
-ORDER BY r.id
-OFFSET %s
-
+    { roof.table } r
+ORDER BY
+    r.gml_id OFFSET % s
