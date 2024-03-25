@@ -4,4 +4,4 @@ SELECT
 FROM
     {roof.table} r
 ORDER BY
-    r.gml_id OFFSET % s
+    r.gml_id OFFSET %s

@@ -9,4 +9,4 @@ WHERE
 ORDER BY
     res.id
 LIMIT
-    % s;
+    %s;

@@ -6,4 +6,4 @@ SELECT
 FROM
     {roof.table} r
 WHERE
-    gml_id = % s;
+    gml_id = %s;

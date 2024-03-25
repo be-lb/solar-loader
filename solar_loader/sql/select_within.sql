@@ -4,4 +4,4 @@ SELECT
 FROM
     {solid.table}
 WHERE
-    ST_3DDWithin(% s, {solid.geometry}, % s);
+    ST_3DDWithin(%s, {solid.geometry}, %s);

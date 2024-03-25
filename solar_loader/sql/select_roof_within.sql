@@ -12,6 +12,6 @@ FROM
         FROM
             {ground.table}
         WHERE
-            {ground.capakey} = % s
+            {ground.capakey} = %s
     ) g ON st_within(r.{roof.centroid}, g.geom)
     JOIN {results.table} res ON res.{results.roof_id} = r.gml_id

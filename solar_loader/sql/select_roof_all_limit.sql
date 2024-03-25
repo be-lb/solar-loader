@@ -5,5 +5,5 @@ FROM
     {roof.table} r
 ORDER BY
     r.gml_id
-LIMIT
-    % s OFFSET % s
+LIMIT %s 
+OFFSET %s
