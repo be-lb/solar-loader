@@ -1,7 +1,7 @@
 SELECT
     gml_id,
-    st_astext({ solid.geometry })
+    st_astext({solid.geometry})
 FROM
-    { solid.table }
+    {solid.table}
 WHERE
-    ST_3DDWithin(% s, { solid.geometry }, % s);
+    ST_3DDWithin(% s, {solid.geometry}, % s);

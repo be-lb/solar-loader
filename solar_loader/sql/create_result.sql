@@ -1,6 +1,6 @@
-DROP TABLE IF EXISTS { results.table };
+DROP TABLE IF EXISTS {results.table};
 
-CREATE TABLE { results.table }(
+CREATE TABLE {results.table}(
     id serial,
     roof_id character varying(50) not null,
     irradiance decimal DEFAULT 0.0,
@@ -12,10 +12,10 @@ CREATE TABLE { results.table }(
 );
 
 INSERT INTO
-    { results.table }(roof_id)
+    {results.table}(roof_id)
 SELECT
     gml_id
 FROM
-    { roof.table };
+    {roof.table};
 
-CREATE INDEX ON { results.table } (roof_id);
+CREATE INDEX ON {results.table} (roof_id);

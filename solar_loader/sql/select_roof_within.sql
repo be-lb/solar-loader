@@ -1,17 +1,17 @@
 SELECT
     r.gml_id,
-    st_astext(r.{ roof.geometry }),
+    st_astext(r.{roof.geometry}),
     res.area,
-    res.{ results.irradiance },
-    st_astext(r.{ roof.centroid })
+    res.{results.irradiance},
+    st_astext(r.{roof.centroid})
 FROM
-    { roof.table } r
+    {roof.table} r
     JOIN (
         SELECT
-            st_force2d({ ground.geometry }) as geom
+            st_force2d({ground.geometry}) as geom
         FROM
-            { ground.table }
+            {ground.table}
         WHERE
-            { ground.capakey } = % s
-    ) g ON st_within(r.{ roof.centroid }, g.geom)
-    JOIN { results.table } res ON res.{ results.roof_id } = r.gml_id
+            {ground.capakey} = % s
+    ) g ON st_within(r.{roof.centroid}, g.geom)
+    JOIN {results.table} res ON res.{results.roof_id} = r.gml_id
