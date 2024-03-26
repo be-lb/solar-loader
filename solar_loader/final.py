@@ -113,8 +113,12 @@ class IntersectCache:
         id = row[0]
         if id not in self._cache:
             triangles = []
-            for geom in row[1]:
-                triangles.extend(tesselate_earcut(geom.exterior.coords, ctor_polygon))
+            for geom in row[1].geoms:
+                try:
+                    triangles.extend(tesselate_earcut(geom.exterior.coords, ctor_polygon))
+                except Exception as ex:
+                    ex_str = str(ex)
+                    logger.error(f'get_solid error: {ex_str}')
             self._cache[id] = triangles
         return self._cache[id]
 
@@ -216,6 +220,7 @@ def compute_radiation_roof(node_name, row):
     )
     try:
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            logger.info(f'Starting {id}')
             total_rad = process_tasks(geom, db, executor)
 
         res.exec(
@@ -224,14 +229,14 @@ def compute_radiation_roof(node_name, row):
         )
         return id, STATUS_DONE
     except ValueError as ex:
-        logger.error("Value error in compute_radiation_roof : {}".format(ex))
+        logger.error("Value error in compute_radiation_roof [{}]: {}".format(id, ex))
         res.exec(
             "insert_result",
             (0.0, area, node_name, STATUS_FAILED, start_time, now(), id),
         )
         print(traceback.format_exc())
     except Exception as ex:
-        logger.error("Exception in compute_radiation_roof : {}".format(ex))
+        logger.error("Exception in compute_radiation_roof [{id}]: {}".format(id,ex))
         res.exec(
             "insert_result",
             (0.0, area, node_name, STATUS_FAILED, start_time, now(), id),

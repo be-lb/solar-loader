@@ -46,10 +46,10 @@ def union_it():
         if it.geom_type == 'Polygon':
             return merge_it(intersection, it)
         elif it.geom_type == 'MultiPolygon':
-            for g in it:
+            for g in it.geoms:
                 return inner(intersection, g)
         elif it.geom_type == 'GeometryCollection':
-            for geom in it:
+            for geom in it.geoms:
                 return inner(intersection, geom)
 
         return intersection
@@ -84,7 +84,7 @@ def get_exposed_area(gis_triangle, sunvec, row_intersect):
         # apply same transformation than the flatten triangle
         flatten_solid = transform_multipolygon(flat_mat, solid)
 
-        for s in flatten_solid:
+        for s in flatten_solid.geoms:
             try:
                 intersection = unioner(intersection,
                                        triangle_2d.intersection(s))

@@ -14,7 +14,7 @@ def rows_with_geom(db, select, params, geom_index):
         try:
             row[geom_index] = wkt.loads(row[geom_index])
         except Exception as ex:
-            logger.error('could not read "{}"\n{}'.format(row[geom_index], ex))
+            logger.error('[{}] could not read "{}"\n{}'.format(select, row[geom_index], ex))
             continue
         yield row
 

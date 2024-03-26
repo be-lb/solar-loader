@@ -181,9 +181,7 @@ def get_3d(request, capakey):
     ), 1):
         features.append(shape_to_feature(row[1], row[0], dict(is_exact=False)))
 
-    # db = data_store
-    # rows = rows_with_geom(db, 'select_solid_intersect',
-    #                       (capakey_in(capakey), ), 0)
+
     collection = make_feature_collection(features)
     return JsonResponse(collection)
 

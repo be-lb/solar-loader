@@ -1,6 +1,7 @@
 SELECT
   gml_id,
-  st_astext({solid.geometry}) --  gid, st_astext(ST_DelaunayTriangles({solid.geometry}))
+  -- st_astext({solid.geometry}) --  gid, st_astext(ST_DelaunayTriangles({solid.geometry}))
+  st_astext(ST_ForceCollection({solid.geometry}), 2) --  gid, st_astext(ST_DelaunayTriangles({solid.geometry}))
 FROM
   {solid.table}
 WHERE
